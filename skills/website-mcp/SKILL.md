@@ -1,6 +1,6 @@
 ---
 name: website-mcp
-description: Build an MCP server that drives any website through headless Chromium and the Jev model, on the dynamic-web-mcp-framework. Use when the user says "Make an MCP of website X", "add a site to the web MCP framework", or wants an agent to operate a web app that has no usable API. Ends with a ready Docker container named <site>-mcp, a signed-in test account, and a verification record.
+description: Build an MCP server that drives any website through headless Chromium and the Jev model, on mcpify-all-the-things. Use when the user says "Make an MCP of website X", "add a site to the web MCP framework", or wants an agent to operate a web app that has no usable API. Ends with a ready Docker container named <site>-mcp, a signed-in test account, and a verification record.
 ---
 
 # Build a website MCP server
@@ -9,7 +9,7 @@ You turn "Make an MCP of website X" into a container the user can plug into any 
 
 ## Ground rules
 
-- Framework repo: `~/dynamic-web-mcp-framework`. Read `AGENTS.md`, `README.md`, `docs/BUILDING_SERVERS.md`, `src/website_mcp/spec.py`, `servers/wikipedia/site.py` (minimal, no login) and `servers/outlook/site.py` (full, with login) before writing anything.
+- Framework repo: `~/code/mcpify-all-the-things`. Read `AGENTS.md`, `README.md`, `docs/BUILDING_SERVERS.md`, `src/website_mcp/spec.py`, `servers/wikipedia/site.py` (minimal, no login) and `servers/outlook/site.py` (full, with login) before writing anything.
 - Layout is fixed: everything for a site lives in `servers/<site>/`: `site.py` exporting `SITE`, `compose.yaml`, `README.md`, `verification.md`, `tests/`. The framework package never contains site code.
 - Naming convention, unless the user asks for something else: the directory is `<site>`, and the Compose service, `container_name`, the image (`<site>-mcp:local`), the volume (`<site>-mcp-data`) and the MCP client entry are all `<site>-mcp`. One long-running container per site serving MCP over HTTP on its own loopback port; any number of agents connect to it; there is never a separate login container.
 - Jev chooses among observed controls and caller-supplied strings. It cannot invent text. Every string a tool needs typed must arrive as a tool argument or be computed in Python.
@@ -33,7 +33,7 @@ If the user gave the workflows already, skip the question and confirm your tool 
 Use the framework's own browser, never your desktop browser, so you see what Jev will see. Start the site directory with a tool-less `site.py` plus a `compose.yaml` copied from `servers/wikipedia` (see Phase 3 for what to change), then look at the public landing page. The helper scripts start the container with the `browser_status` debug tool, which returns the page without a model call.
 
 ```sh
-cd ~/dynamic-web-mcp-framework && uv sync --frozen
+cd ~/code/mcpify-all-the-things && uv sync --frozen
 mkdir -p servers/<site>/tests
 cat > servers/<site>/site.py <<'PY'
 from website_mcp.spec import Site

@@ -1,4 +1,4 @@
-# Dynamic Web MCP Framework
+# Mcpify All The Things
 
 Turn any website into an MCP server. Each server drives the site in its own headless Chromium: TypeSafe's Jev model picks the next action from the controls it can see, Playwright executes it, and the caller's exact strings are the only text ever typed. A server exposes only that site's functionality as tools and runs as one long-running Docker container named `<site>-mcp`, serving MCP over HTTP on the host loopback so any number of agents share one signed-in session; their calls queue on the single browser. Each container keeps its own browser profile, so credentials for one site never share a process or a volume with another. Sign-in happens in a local page served by the same container, never through the model.
 
