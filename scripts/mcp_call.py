@@ -27,6 +27,8 @@ async def main(site, tool, arguments, local):
             command="docker",
             args=["compose", "-f", str(root / "compose.yaml"), "run", "--rm", "--no-deps"]
             + ["--service-ports", "-T", site],
+            # The MCP SDK strips the environment by default; Compose needs TYPESAFE_API_KEY.
+            env=dict(os.environ),
         )
     async with stdio_client(params) as (read, write):
         async with ClientSession(read, write) as session:

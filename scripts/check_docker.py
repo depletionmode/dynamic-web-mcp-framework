@@ -5,6 +5,7 @@ Usage: uv run python scripts/check_docker.py [site ...]
 
 import asyncio
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -32,6 +33,7 @@ async def main():
                 "--account",
                 "container-smoke",
             ],
+            env=dict(os.environ),
         )
         async with stdio_client(params) as (read, write):
             async with ClientSession(read, write) as session:
