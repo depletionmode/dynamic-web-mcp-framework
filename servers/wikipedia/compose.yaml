@@ -22,6 +22,9 @@ services:
       # Optional bearer token for /mcp; empty means open on the loopback. `bin/site-mcp up <site> --token` sets one.
       WEBSITE_MCP_TOKEN: ${WEBSITE_MCP_TOKEN:-}
       WEBSITE_MCP_DEBUG_TOOLS: ${WEBSITE_MCP_DEBUG_TOOLS:-}
+      # Close Chromium after this many idle seconds; the next call reopens it signed in. 0 = never.
+      # Override in ./.env (BROWSER_IDLE_TIMEOUT=1800) or the environment of `docker compose`.
+      BROWSER_IDLE_TIMEOUT: ${BROWSER_IDLE_TIMEOUT:-600}
     volumes:
       - data:/data
     shm_size: 256mb

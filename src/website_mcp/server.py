@@ -257,6 +257,10 @@ async def serve(browser, host, port, transport="stdio"):
     login_url = f"http://127.0.0.1:{port}/#{token}" if host else None
     server, runner = create_server(browser, login_url=login_url)
     view_task = None
+    # Chromium is launched on first use and closed after this many idle seconds (0 = never).
+    idle_task = asyncio.create_task(
+        browser.close_when_idle(float(os.getenv("BROWSER_IDLE_TIMEOUT", "600")))
+    )
     try:
         if transport == "http":
             auth = "bearer token" if mcp_token else "no auth, loopback only"
@@ -271,6 +275,7 @@ async def serve(browser, host, port, transport="stdio"):
             async with stdio_server() as (read, write):
                 await server.run(read, write, server.create_initialization_options())
     finally:
+        idle_task.cancel()
         if view_task:
             view.should_exit = True
             await view_task

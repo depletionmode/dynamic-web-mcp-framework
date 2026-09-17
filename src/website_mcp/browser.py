@@ -4,6 +4,8 @@ import asyncio
 import fcntl
 import hashlib
 import os
+import sys
+import time
 import uuid
 from pathlib import Path
 
@@ -46,8 +48,29 @@ class Browser:
         self.handles = []
         self.targets = {}
         self.blocked_navigation = None
+        self.last_used = time.monotonic()
+
+    def touch(self):
+        self.last_used = time.monotonic()
+
+    async def close_when_idle(self, idle_seconds, poll_seconds=30):
+        """Close Chromium after idle_seconds without use; the next call relaunches the same
+        profile, so sign-in survives. Runs until cancelled; idle_seconds <= 0 disables it."""
+        if idle_seconds <= 0:
+            return
+        while True:
+            await asyncio.sleep(min(poll_seconds, idle_seconds))
+            if not self.context or self.lock.locked():
+                continue
+            if time.monotonic() - self.last_used < idle_seconds:
+                continue
+            async with self.lock:
+                if self.context and time.monotonic() - self.last_used >= idle_seconds:
+                    await self.close()
+                    print(f"Closed idle browser after {idle_seconds:g}s", file=sys.stderr)
 
     async def start(self):
+        self.touch()
         if self.context:
             return
         for path in (self.root, self.profile, self.files):

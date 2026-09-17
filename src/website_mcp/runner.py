@@ -154,6 +154,7 @@ class Runner:
                 await asyncio.wait_for(self.browser.flush_downloads(), timeout=15)
             except Exception:
                 pass
+            self.browser.touch()  # idle time counts from the end of a run, not its start
             return {
                 "run_id": run_id,
                 "status": status,

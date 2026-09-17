@@ -19,7 +19,7 @@ bin/site-mcp up wikipedia
 
 `up` builds the image if needed, starts the container detached, saves the key to `servers/wikipedia/.env`, and prints the exact `grok mcp add`, `claude mcp add` and `codex mcp add` lines for `http://127.0.0.1:8767/mcp`. The endpoint is open on the loopback by default; `up <site> --token` requires a bearer token instead. `bin/site-mcp connect|status|down <site>` do what they say. `.mcp.json` declares both servers for Claude Code. When a tool result says `login.required`, open the URL it carries, sign in, and call again; the session persists in the site's volume across restarts.
 
-Results are evidence, not claims: observed text, captured pages, downloaded files and the action history, with a status of `model_complete`, `verified`, or a named reason it stopped. Runs are bounded by steps, a 120 second timeout, and guardrails against no progress, loops and persistently low confidence. Each server's `README.md` and `verification.md` say what it does and what has actually been exercised on the real site.
+Results are evidence, not claims: observed text, captured pages, downloaded files and the action history, with a status of `model_complete`, `verified`, or a named reason it stopped. Runs are bounded by steps, a 120 second timeout, and guardrails against no progress, loops and persistently low confidence. Chromium starts on the first call and closes after 10 idle minutes, keeping the sign-in; set `BROWSER_IDLE_TIMEOUT` (seconds, `0` for never) in `servers/<site>/.env` to change it. Each server's `README.md` and `verification.md` say what it does and what has actually been exercised on the real site.
 
 ## Develop
 
