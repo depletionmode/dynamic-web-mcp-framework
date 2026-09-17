@@ -13,6 +13,18 @@ Use this framework to expose meaningful, typed website operations. Read `src/web
 9. **Verify the complete contract.** Test actual Chromium controls and resulting state; MCP initialization/discovery/calls through a real stdio client; login persistence and isolation; uploads/downloads; validators; stale targets and incomplete outcomes. Then use paid Jev calls on representative fixtures. Finally test the live authenticated website, including pagination, filters, attachments and mutation evidence in a test account. Do not substitute mock tests for a claim that a real-site workflow works.
 10. **Document the result.** Include setup, exact login/MCP commands, example tool arguments, supported workflows, known limitations and current verification evidence. Record failures honestly and keep incomplete requirements open.
 
+## What the model observes
+
+Goals fail most often because they were written against the page a human sees rather than the one the runner hands the model. These hold for every site:
+
+- An observation is a **viewport clip**. `snapshot.js` keeps only elements and text whose rect intersects the 1440x1000 viewport; everything else is absent, not truncated. Listing anything taller than one screen is a walk down the page.
+- `scroll_down` is a fixed **700px wheel**, less than the viewport, so captures and scrolls must strictly alternate: two scrolls in a row skip a band of content.
+- `capture` **changes nothing**. Two in a row record the same screen, and four unchanged observations trip the no-progress guard. Put "never capture twice in a row" in `guidance`, which is seen on every decision, rather than in a single goal.
+- A call **starts where the last one finished**. `start_url` is loaded only when the page is first opened, so on a long-running container each tool inherits the previous tool's page and scroll position. Anchor goals to a visible marker ("if the masthead is not on screen, scroll up"), because the model cannot read a scroll offset.
+- The completion check sees the final page text, the executed actions and each capture's URL and leading text, never a structured result. Phrase the end state as something the page displays; a goal that reads as an extraction request scores badly however well the run went.
+
+Measure before writing goals: load the page at 1440x1000, run the repository's own `snapshot.js` after each 700px wheel, and print `scrollY` with the resulting text. That is free and shows exactly how many screens the page is and what its end looks like. Where a page has columns, also read `getBoundingClientRect()` with `scrollY`, since a short column beside a long one is not where DOM order suggests. Confirm a control's mechanism the same way before designing a tool around it: a "Download" button that calls `window.print()` can never produce a file headless, and that tool has to be dropped and reported rather than shipped hopeful.
+
 ## Minimal site
 
 ```python

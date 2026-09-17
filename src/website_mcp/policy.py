@@ -186,7 +186,15 @@ class JevPolicy:
             "final_title": observation.get("title"),
             "executed_actions": executed,
             "downloads": observation.get("downloads", []),
-            "captured_pages": [c["url"] for c in captures],
+            # The rubric lets captured evidence satisfy a listing goal, so the judge needs what
+            # each capture holds, not just where it was taken. Bounded to keep the pack small.
+            "captured_pages": [
+                {
+                    "url": c["url"],
+                    "text": (c["frames"][0]["text"][:1500] if c.get("frames") else ""),
+                }
+                for c in captures[:10]
+            ],
             "final_page_text": frames[0]["text"][:4000] if frames else "",
         }
         response = await (await self._client()).system_one(

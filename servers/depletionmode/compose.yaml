@@ -1,0 +1,35 @@
+# depletionmode MCP server: one long-running container named depletionmode-mcp, built on the generic framework image.
+# Start with `bin/site-mcp up depletionmode`; it writes ./.env (token, key) and prints the client config.
+name: depletionmode-mcp
+services:
+  depletionmode-mcp:
+    build:
+      context: ../..
+      args:
+        SITE_DIR: servers/depletionmode
+    image: depletionmode-mcp:local
+    container_name: depletionmode-mcp
+    init: true
+    restart: unless-stopped
+    # MCP over HTTP at /mcp and the human login view at /, both on the host loopback.
+    command: [serve, --site, /site/site.py, --transport, http, --host, "0.0.0.0", --port, "8768"]
+    ports:
+      - "127.0.0.1:8768:8768"
+    environment:
+      # All from ./.env next to this file (written by bin/site-mcp up) or the caller's environment.
+      TYPESAFE_API_KEY: ${TYPESAFE_API_KEY:?export TYPESAFE_API_KEY or put it in .env next to compose.yaml}
+      TYPESAFE_DEFAULT_MODEL: ${TYPESAFE_DEFAULT_MODEL:-jev-latest}
+      # Optional bearer token for /mcp; empty means open on the loopback. `bin/site-mcp up <site> --token` sets one.
+      WEBSITE_MCP_TOKEN: ${WEBSITE_MCP_TOKEN:-}
+      WEBSITE_MCP_DEBUG_TOOLS: ${WEBSITE_MCP_DEBUG_TOOLS:-}
+      # Close Chromium after this many idle seconds; the next call reopens it signed in. 0 = never.
+      # Override in ./.env (BROWSER_IDLE_TIMEOUT=1800) or the environment of `docker compose`.
+      BROWSER_IDLE_TIMEOUT: ${BROWSER_IDLE_TIMEOUT:-600}
+    volumes:
+      - data:/data
+    shm_size: 256mb
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+volumes:
+  data:
+    name: depletionmode-mcp-data

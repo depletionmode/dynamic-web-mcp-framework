@@ -30,7 +30,7 @@ uv run python scripts/check_docker.py servers/wikipedia                     # st
 uv run python scripts/mcp_call.py servers/wikipedia wiki_search '{"query": "Ada Lovelace"}'   # one paid Jev run
 ```
 
-[docs/architecture.md](docs/architecture.md) explains the moving parts; [docs/BUILDING_SERVERS.md](docs/BUILDING_SERVERS.md) is the human-readable version of the skill. The container runs as a non-root user with capabilities dropped and listens only on the host loopback. The login view always needs the per-run token in its URL; the MCP endpoint is open unless started with `--token`. `serve --transport stdio` still exists for a single spawning client. The model sees page text, so treat the TypeSafe service as a processor of whatever the site shows.
+[docs/architecture.md](docs/architecture.md) explains the moving parts; its "What the model observes" section in [docs/BUILDING_SERVERS.md](docs/BUILDING_SERVERS.md) covers the viewport clip, scroll step, capture semantics and page carry-over that site goals have to be written against; [docs/BUILDING_SERVERS.md](docs/BUILDING_SERVERS.md) is the human-readable version of the skill. The container runs as a non-root user with capabilities dropped and listens only on the host loopback. The login view always needs the per-run token in its URL; the MCP endpoint is open unless started with `--token`. `serve --transport stdio` still exists for a single spawning client. The model sees page text, so treat the TypeSafe service as a processor of whatever the site shows.
 
 ## Inspiration and credits
 

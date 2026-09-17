@@ -104,6 +104,9 @@ class Runner:
                             captures.append(
                                 {"url": observation["url"], "frames": observation["frames"]}
                             )
+                            # A capture happens; the policy is told only executed actions took
+                            # effect, so an unexecuted one reads as failed and gets retried.
+                            entry["executed"] = True
                             entry["captured_page"] = len(captures)
                             if len(captures) >= 25:
                                 status = "capture_limit"

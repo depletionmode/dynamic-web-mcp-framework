@@ -52,6 +52,46 @@ Record, in `servers/<site>/README.md` as you go:
 
 Then have the user sign in (Phase 4 shows how) and repeat the observation on the authenticated app. Take a `browser_status` after opening each screen you intend to automate and keep the control names you see. Guidance strings and goals should use the site's own words.
 
+## What Jev actually sees, and why goals fail
+
+Most wasted live runs come from writing goals against the page you see in a browser rather than the one the framework hands the model. Read these before Phase 2; they are in `snapshot.js`, `browser.py` and `runner.py`, and they are the same for every site.
+
+- **An observation is a viewport clip, not the page.** `snapshot.js` keeps only elements and text nodes whose rect intersects the 1440x1000 viewport. Anything above or below simply does not exist for that step: not truncated, absent. A goal that says "list all X" on a page taller than one screen is a goal to walk the page.
+- **`scroll_down` is a fixed 700px wheel**, slightly less than the viewport. So one scroll between captures overlaps safely, and **two scrolls in a row skip a band of the page**. Tell the model capture and scroll strictly alternate.
+- **`capture` changes nothing.** It records the current screen. Two captures in a row record the same screen twice, and four consecutive unchanged observations trip `NO_PROGRESS_STEPS` and kill the run. "Never capture twice in a row; after a capture, scroll or finish" belongs in `guidance`, where it is seen on every decision, not only in one goal.
+- **A call starts wherever the last call left the browser.** `start_url` is only loaded when the page is first opened. On a long-running container, tool #2 begins on whatever page and scroll position tool #1 ended on. Every goal that assumes a starting page needs a preamble that gets there, and the model cannot read the scroll offset: give it a *visible* test instead, such as "the masthead marks the top; if it is not on screen, scroll up until it is".
+- **The completion judge sees less than you think.** It gets the final page text, the executed actions and each capture's URL and leading text. It never sees a structured result, because the framework does not produce one. A goal phrased as an extraction ("record each row's name, date and status") asks for something no evidence can show, and scores badly however well the run went. Phrase the end state as what the page displays: "stop once the footer is on screen".
+- **Confidence is a signal, read it.** Step confidences around 0.3-0.5 mean the goal is ambiguous to the model, and a run that thrashes between `scroll_up` and `scroll_down` usually means the goal has too many conditional branches. One clear path beats three alternatives; `low_confidence` and `looping` are the guards catching that.
+
+### Measure the page before writing goals
+
+This is free, takes one script, and replaces a string of paid runs spent guessing. Load the page at the framework's own viewport, run the real `snapshot.js` at each scroll position, and see exactly what each step would observe:
+
+```python
+# uv run python - ; loads the page at 1440x1000, then walks it 700px at a time
+SNAP = pathlib.Path("src/website_mcp/snapshot.js").read_text()
+page = await browser.new_page(viewport={"width": 1440, "height": 1000})
+await page.goto(URL, wait_until="networkidle")
+for step in range(6):
+    if step:
+        await page.mouse.move(1000, 700); await page.mouse.wheel(0, 700); await asyncio.sleep(0.4)
+    handle = await page.evaluate_handle(f"({SNAP})()")
+    print(await page.evaluate("scrollY"), await handle.evaluate("s => s.text"))
+```
+
+From that you learn how many screens the page is, which sections share a screen, and what the end-of-page text looks like: everything a good stop condition needs. Also measure element geometry (`getBoundingClientRect()` plus `scrollY`) when a page has columns or sidebars, because a short column beside a long one is not where its DOM order suggests.
+
+### Prove a control does what its label says
+
+Before designing a tool around a control, confirm its mechanism. A "Download" control may be an `<a download>`, an `<a>` to a file, or a `<button>` calling `window.print()`, which opens the browser's print dialog and **can never produce a file in headless Chromium**. Test it directly rather than assuming:
+
+```python
+async with page.expect_download(timeout=15000) as dl:   # raises if nothing downloads
+    await page.get_by_text("Download PDF").first.click()
+```
+
+The same applies to anything that looks like search, export or share. A tool whose underlying control cannot work headless must be dropped from the catalog and reported to the user, not shipped with an optimistic goal. Tell the user as soon as you know; they chose the catalog on the assumption it was possible.
+
 ## Phase 2: design the tool catalog
 
 Think in the site's nouns. For each record type the user cares about, the usual set is:
@@ -127,9 +167,16 @@ Common failures and the fix that worked:
 
 - Jev hits the context limit on big pages: the goal asks to capture too much at once. Narrow the goal, page through with captures, rely on scrolling.
 - Jev clicks a plausible but wrong control: name the control in the goal exactly as the snapshot names it, or add a rule to `guidance`.
-- Result is `unverified` or a low `model_complete` probability although the UI is right: the goal does not name an end state the page shows. Rewrite the goal's stop condition in the page's words. Only reach for a verifier if the page genuinely offers no visible evidence.
+- Result is `unverified` or a low `model_complete` probability although the UI is right: the goal does not name an end state the page shows. Rewrite the goal's stop condition in the page's words. Only reach for a verifier if the page genuinely offers no visible evidence. Do not add a verifier that asserts something narrower than the tool claims just to turn the status green; an honest `unverified` beats verification theatre, and a single-URL listing walked over several screens can legitimately sit below the 0.9 bar. Say so in `verification.md` with the evidence.
+- `no_progress` with a run full of captures: the model is capturing an unchanged page. Put the alternation rule in `guidance`.
+- `looping` or `low_confidence` with the model scrolling back and forth: the goal offers several conditional paths, or its stop condition cannot be checked against anything on screen. Cut it to one path and one visible end state.
+- Content that the page clearly shows never appears in any capture: the model scrolled past it two notches at a time, or the section sits in a shorter column that ended higher up the page. Measure the geometry.
+- A listing that only ever returns the oldest or newest part: the call started part-way down the page from the previous call. Anchor the goal to a visible top-of-page marker.
 - `unstable_page`: the page re-renders between observation and action. Add a wait condition to the goal ("wait until the list has loaded") before the action.
 - `action_error` after a mutation: never re-run blindly. Observe the state and reconcile with the user.
+- Off-site destinations, when the site links out and the user asked to follow: other people's pages come with cookie banners and modal overlays over the content. Say so in `guidance` ("dismiss the overlay, then read the heading and body"), and expect shallower evidence than on the site itself.
+
+When you inspect a result while debugging, print the **whole** captured text, or the identifiers you expect in it. Truncating captures to their first few hundred characters hides content that is actually there and sends you chasing a bug that does not exist.
 
 ## Phase 6: hand over
 

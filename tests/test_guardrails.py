@@ -58,3 +58,14 @@ async def test_persistently_low_confidence_stops(website, tmp_path):
     )
     assert result["status"] == "low_confidence"
     assert policy.calls == 5
+
+
+async def test_capture_is_recorded_as_executed(website, tmp_path):
+    """A capture takes effect; the policy is told only executed actions did, so an
+    unexecuted one reads as failed and the model retries it until no_progress."""
+    # Captures alone never change the page, so the no-progress guard ends the run.
+    result, _ = await run(website, tmp_path, lambda n, o: Decision("capture"))
+    assert result["status"] == "no_progress"
+    captures = [step for step in result["steps"] if step.get("action") == "capture"]
+    assert [step["captured_page"] for step in captures] == [1, 2, 3, 4]
+    assert all(step["executed"] for step in captures)
