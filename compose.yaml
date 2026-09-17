@@ -9,7 +9,8 @@ services:
     ports:
       - "127.0.0.1:8765:8765"
     environment:
-      TYPESAFE_API_KEY: ${TYPESAFE_API_KEY:-}
+      # Passed through from the environment that runs `docker compose`, or from ./.env.
+      TYPESAFE_API_KEY: ${TYPESAFE_API_KEY:?export TYPESAFE_API_KEY or put it in .env next to compose.yaml}
       TYPESAFE_DEFAULT_MODEL: ${TYPESAFE_DEFAULT_MODEL:-jev-latest}
     volumes:
       - outlook-data:/data

@@ -1,7 +1,11 @@
-"""Read-only container smoke: real MCP handshakes and real public login pages."""
+"""Read-only container smoke: real MCP handshakes and real public login pages.
+
+Usage: uv run python scripts/check_docker.py [site ...]
+"""
 
 import asyncio
 import json
+import sys
 from pathlib import Path
 
 from mcp import ClientSession, StdioServerParameters
@@ -10,7 +14,7 @@ from mcp.client.stdio import stdio_client
 
 async def main():
     compose = str(Path(__file__).resolve().parents[1] / "compose.yaml")
-    for site in ("outlook",):
+    for site in sys.argv[1:] or ("outlook",):
         params = StdioServerParameters(
             command="docker",
             args=[

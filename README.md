@@ -36,14 +36,17 @@ One container per MCP server. The container speaks MCP on stdio and publishes it
 docker compose build
 ```
 
-Use the following MCP client configuration, replacing the path with your checkout. `TYPESAFE_API_KEY` must be available to the Docker Compose process (export it or place it in an ignored `.env`). Never put keys in committed client configuration.
+The container takes `TYPESAFE_API_KEY` from the environment of whatever runs `docker compose`. Three ways to get it there: export it in the shell that starts the MCP client, put it in the client's `env` block for this server, or write it to `.env` next to `compose.yaml` (gitignored; see `.env.example`). Compose refuses to start without it. Never commit the key.
+
+Use the following MCP client configuration, replacing the path with your checkout.
 
 ```json
 {
   "mcpServers": {
     "outlook": {
       "command": "docker",
-      "args": ["compose", "-f", "/absolute/path/jev-driven-browser-mcp/compose.yaml", "run", "--rm", "--no-deps", "--service-ports", "-T", "outlook"]
+      "args": ["compose", "-f", "/absolute/path/jev-driven-browser-mcp/compose.yaml", "run", "--rm", "--no-deps", "--service-ports", "-T", "outlook"],
+      "env": {"TYPESAFE_API_KEY": "your-key"}
     }
   }
 }
