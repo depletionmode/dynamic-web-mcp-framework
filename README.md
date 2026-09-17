@@ -15,11 +15,10 @@ The skill takes it from recon of the real site, through tool design, implementat
 ```sh
 export TYPESAFE_API_KEY='your-key'
 docker compose -f servers/wikipedia/compose.yaml build
-claude mcp add wikipedia-mcp -e TYPESAFE_API_KEY="$TYPESAFE_API_KEY" -- \
-  docker compose -f "$PWD/servers/wikipedia/compose.yaml" run --rm --no-deps --service-ports --name wikipedia-mcp -T wikipedia-mcp
+claude mcp add wikipedia-mcp -e TYPESAFE_API_KEY="$TYPESAFE_API_KEY" -- "$PWD/bin/site-mcp" wikipedia
 ```
 
-`codex mcp add` and `grok mcp add` take the same command. `.mcp.json` declares both servers for Claude Code. When a tool result says `login.required`, open the URL it carries, sign in, and call again; the session persists in the site's volume.
+`codex mcp add` and `grok mcp add` take the same command. `bin/site-mcp <site>` starts the site's container over stdio; because one container owns a site's browser profile, a new launch replaces an existing one rather than failing. `.mcp.json` declares both servers for Claude Code. When a tool result says `login.required`, open the URL it carries, sign in, and call again; the session persists in the site's volume.
 
 Results are evidence, not claims: observed text, captured pages, downloaded files and the action history, with a status of `model_complete`, `verified`, or a named reason it stopped. Runs are bounded by steps, a 120 second timeout, and guardrails against no progress, loops and persistently low confidence. Each server's `README.md` and `verification.md` say what it does and what has actually been exercised on the real site.
 

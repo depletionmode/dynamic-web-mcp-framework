@@ -80,7 +80,7 @@ Show the user the catalog as a table (tool, arguments, read-only, verifier yes o
 
 1. Fill in `servers/<site>/site.py`: `name`, `start_url`, `domains`, `login_domains`, `guidance`, argument models, task factories, verifiers. Guidance is where site quirks live: "Save autosaves after 2 seconds", "the list is virtualized, capture before scrolling", "opening a record marks it read". Computed strings (search syntax, formatted dates, totals the UI expects typed) live in methods on the argument model, as `MailQuery.search()` does for Outlook.
 2. Copy `servers/wikipedia/compose.yaml` to `servers/<site>/compose.yaml`. Change `name`, the service key, `SITE_DIR`, the image, the volume name, and the port: Outlook uses 8765, Wikipedia 8767; take the next free one and set it both in `--port` and in `ports`. The generic `Dockerfile` copies the site directory to `/site`.
-3. Add the site to `.mcp.json` at the repo root, copying an existing entry.
+3. Add the site to `.mcp.json` at the repo root, copying an existing entry. Clients launch `bin/site-mcp <site>`, which starts the container and replaces a stale one.
 4. Tests in `servers/<site>/tests/`, all offline and free: argument validation including computed strings; `login_domains` against real sign-in URLs from your recon; the stdio handshake listing your tools (copy `servers/outlook/tests/test_outlook.py`); a verifier test against a fixture page if a verifier has logic beyond a locator read.
 5. Run the gates. All must pass before anything live:
 
@@ -134,7 +134,7 @@ Common failures and the fix that worked:
 ## Phase 6: hand over
 
 1. `servers/<site>/verification.md`: the date, the exact commands run, and a table of each tool with the evidence seen (or "not yet verified"). Do not round up.
-2. `servers/<site>/README.md`: what the server does, the `claude mcp add` line and JSON client config with its service name and port, one example call per tool family, known limitations.
+2. `servers/<site>/README.md`: what the server does, the `claude mcp add <site>-mcp -e TYPESAFE_API_KEY=... -- <repo>/bin/site-mcp <site>` line, one example call per tool family, known limitations.
 3. Commit. The container is ready when the gates in Phase 3 pass and the verification table shows real evidence for the tools the user asked for.
 4. Tell the user what works, what was not exercised and why, and the exact MCP client config to paste.
 

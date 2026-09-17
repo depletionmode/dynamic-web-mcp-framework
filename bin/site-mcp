@@ -1,0 +1,15 @@
+#!/usr/bin/env sh
+# Start servers/<site> as the stdio MCP container <site>-mcp. Point MCP clients at this script:
+#   claude mcp add wikipedia-mcp -e TYPESAFE_API_KEY=... -- /path/to/bin/site-mcp wikipedia
+# Only one container can own a site's browser profile, so a new launch replaces an existing one.
+set -eu
+[ $# -eq 1 ] || { echo "usage: $0 <site>   (a directory under servers/)" >&2; exit 2; }
+root=$(cd "$(dirname "$0")/.." && pwd)
+site=$1
+name="$site-mcp"
+[ -f "$root/servers/$site/compose.yaml" ] || { echo "no servers/$site/compose.yaml" >&2; exit 2; }
+if docker container inspect "$name" >/dev/null 2>&1; then
+  echo "Replacing running container $name: only one $site session can own its browser profile" >&2
+  docker rm -f "$name" >/dev/null
+fi
+exec docker compose -f "$root/servers/$site/compose.yaml" run --rm --no-deps --service-ports --name "$name" -T "$name"

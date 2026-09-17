@@ -17,24 +17,20 @@ from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
 
-def server(target):
-    """servers/<site> directory -> (site, compose file, service). Service and container are <site>-mcp."""
-    directory = Path(target).resolve()
-    site = directory.name
-    return site, directory / "compose.yaml", f"{site}-mcp"
+def site_name(target):
+    """servers/<site> directory -> site; bin/site-mcp runs it as container <site>-mcp."""
+    return Path(target).resolve().name
 
 
 def params(target, local):
     root = Path(__file__).resolve().parents[1]
-    site, compose, service = server(target)
+    site = site_name(target)
     if local:
         command = str(root / ".venv/bin/website-mcp")
         args = ["serve", "--site", str(Path(target) / "site.py")]
         args += ["--state-dir", str(root / ".state")]
     else:
-        command = "docker"
-        args = ["compose", "-f", str(compose), "run", "--rm", "--no-deps"]
-        args += ["--service-ports", "--name", service, "-T", service]
+        command, args = str(root / "bin/site-mcp"), [site]
     return StdioServerParameters(
         command=command, args=args, env=dict(os.environ) | {"WEBSITE_MCP_DEBUG_TOOLS": "1"}
     )

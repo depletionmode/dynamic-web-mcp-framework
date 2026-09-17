@@ -1,14 +1,22 @@
 {
   "mcpServers": {
     "wikipedia-mcp": {
-      "command": "docker",
-      "args": ["compose", "-f", "servers/wikipedia/compose.yaml", "run", "--rm", "--no-deps", "--service-ports", "--name", "wikipedia-mcp", "-T", "wikipedia-mcp"],
-      "env": {"TYPESAFE_API_KEY": "${TYPESAFE_API_KEY}"}
+      "command": "bin/site-mcp",
+      "args": [
+        "wikipedia"
+      ],
+      "env": {
+        "TYPESAFE_API_KEY": "${TYPESAFE_API_KEY}"
+      }
     },
     "outlook-mcp": {
-      "command": "docker",
-      "args": ["compose", "-f", "servers/outlook/compose.yaml", "run", "--rm", "--no-deps", "--service-ports", "--name", "outlook-mcp", "-T", "outlook-mcp"],
-      "env": {"TYPESAFE_API_KEY": "${TYPESAFE_API_KEY}"}
+      "command": "bin/site-mcp",
+      "args": [
+        "outlook"
+      ],
+      "env": {
+        "TYPESAFE_API_KEY": "${TYPESAFE_API_KEY}"
+      }
     }
   }
 }

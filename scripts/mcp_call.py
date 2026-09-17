@@ -14,16 +14,14 @@ from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
 
-def server(target):
-    """servers/<site> directory -> (site, compose file, service). Service and container are <site>-mcp."""
-    directory = Path(target).resolve()
-    site = directory.name
-    return site, directory / "compose.yaml", f"{site}-mcp"
+def site_name(target):
+    """servers/<site> directory -> site; bin/site-mcp runs it as container <site>-mcp."""
+    return Path(target).resolve().name
 
 
 async def main(target, tool, arguments, local):
     root = Path(__file__).resolve().parents[1]
-    site, compose, service = server(target)
+    site = site_name(target)
     if local:
         params = StdioServerParameters(
             command=str(root / ".venv/bin/website-mcp"),
@@ -33,9 +31,8 @@ async def main(target, tool, arguments, local):
         )
     else:
         params = StdioServerParameters(
-            command="docker",
-            args=["compose", "-f", str(compose), "run", "--rm", "--no-deps"]
-            + ["--service-ports", "--name", service, "-T", service],
+            command=str(root / "bin/site-mcp"),
+            args=[site],
             # The MCP SDK strips the environment by default; Compose needs TYPESAFE_API_KEY.
             env=dict(os.environ) | {"WEBSITE_MCP_DEBUG_TOOLS": "1"},
         )
