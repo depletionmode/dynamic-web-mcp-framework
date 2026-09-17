@@ -19,6 +19,8 @@ History records previous actions and captured pages. Only executed=true actions 
 the browser. A stale-observation error means no input was dispatched: read current field
 values and choose again. Do not repeat successful mutations. Reading is complete when
 requested content is in the observation; capture saves evidence before paging/scrolling.
+Prefer read_page over scrolling and capturing when the goal is to read one article or document:
+it records the entire page in one step. Keep capture for lists that load or reveal while paging.
 """
 
 
@@ -74,6 +76,7 @@ class JevPolicy:
             "wait": "Wait for pending UI changes",
             "home": "Go back to this site's own start page",
             "capture": "Record this page of results, then continue pagination",
+            "read_page": "Record the whole page's text at once, for reading an article or document",
             "done": "All requested work has observable evidence",
             "blocked": "Cannot proceed safely or need login/input",
         }

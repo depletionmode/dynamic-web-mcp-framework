@@ -17,6 +17,7 @@ Use this framework to expose meaningful, typed website operations. Read `src/web
 
 Goals fail most often because they were written against the page a human sees rather than the one the runner hands the model. These hold for every site:
 
+- **`read_page` records the whole page's text in one step**, independent of the viewport. Read tools should use it rather than scrolling and capturing, which returns only the screens the model happened to record and leaves the caller with a partial document. `capture` remains right for lists that page or reveal while scrolling.
 - An observation is a **viewport clip**. `snapshot.js` keeps only elements and text whose rect intersects the 1440x1000 viewport; everything else is absent, not truncated. Listing anything taller than one screen is a walk down the page.
 - `scroll_down` is a fixed **700px wheel**, less than the viewport, so captures and scrolls must strictly alternate: two scrolls in a row skip a band of content.
 - `capture` **changes nothing**. Two in a row record the same screen, and four unchanged observations trip the no-progress guard. Put "never capture twice in a row" in `guidance`, which is seen on every decision, rather than in a single goal.

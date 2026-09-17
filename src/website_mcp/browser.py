@@ -155,6 +155,21 @@ class Browser:
         if self.pending_downloads:
             await asyncio.gather(*list(self.pending_downloads))
 
+    async def page_text(self, limit=40000):
+        """The whole page's visible text, not just the viewport the snapshot clips to.
+
+        For reading an article or document in one step. Content a site only renders while
+        scrolling, such as a virtualized list, is still absent until it has been scrolled.
+        """
+        text = await self.page.evaluate("() => document.body ? document.body.innerText : ''")
+        text = (text or "").strip()
+        return {
+            "url": self.page.url,
+            "title": await self.page.title(),
+            "text": text[:limit],
+            "text_truncated": len(text) > limit,
+        }
+
     async def observe(self):
         for handle in self.handles:
             try:

@@ -100,6 +100,12 @@ class Runner:
                                 verification = {"kind": "model", "probability": probability}
                                 status = "model_complete" if probability >= 0.9 else "unverified"
                             break
+                        if decision.action == "read_page":
+                            page = await self.browser.page_text()
+                            captures.append({"url": page["url"], "frames": [page]})
+                            entry["executed"] = True
+                            entry["captured_page"] = len(captures)
+                            continue
                         if decision.action == "capture":
                             captures.append(
                                 {"url": observation["url"], "frames": observation["frames"]}

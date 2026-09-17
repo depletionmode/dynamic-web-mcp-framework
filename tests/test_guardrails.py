@@ -82,3 +82,25 @@ async def test_home_returns_to_the_sites_start_page(website, tmp_path):
         assert browser.page.url == website
     finally:
         await browser.close()
+
+
+async def test_read_page_records_the_whole_document_not_the_viewport(website, tmp_path):
+    """Reading an article must not depend on how far the model happened to scroll."""
+    browser = Browser(Site("fixture", website, ("127.0.0.1",), ()), tmp_path)
+    try:
+        await browser.start()
+        await browser.page.goto(website + "long")
+        clipped = (await browser.observe())["frames"][0]["text"]
+        whole = await browser.page_text()
+        assert "Paragraph 1 of" in clipped and "Paragraph 200 of" not in clipped
+        assert "Top of the article" in whole["text"] and "Paragraph 200 of" in whole["text"]
+        assert not whole["text_truncated"]
+    finally:
+        await browser.close()
+
+
+async def test_read_page_is_captured_with_its_full_text(website, tmp_path):
+    scripted = [Decision("read_page"), Decision("wait")]
+    result, _ = await run(website, tmp_path, lambda n, o: scripted[min(n, 2) - 1])
+    read = next(s for s in result["steps"] if s.get("action") == "read_page")
+    assert read["executed"] and read["captured_page"] == 1

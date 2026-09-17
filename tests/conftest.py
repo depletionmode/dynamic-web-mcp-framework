@@ -32,6 +32,12 @@ def website():
                 self.send_header("Content-Type", "application/octet-stream")
                 self.send_header("Content-Disposition", 'attachment; filename="invoice.txt"')
                 content = b"Invoice 42: total 123.45 ILS"
+            elif self.path == "/long":
+                self.send_header("Content-Type", "text/html")
+                body = b"".join(
+                    b"<p>Paragraph %d of the article body.</p>" % i for i in range(1, 201)
+                )
+                content = b"<title>Long article</title><h1>Top of the article</h1>" + body
             elif self.path == "/frame":
                 self.send_header("Content-Type", "text/html")
                 content = b"<button>Frame action</button>"
