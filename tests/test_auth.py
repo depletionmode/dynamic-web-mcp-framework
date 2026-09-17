@@ -65,7 +65,6 @@ async def test_logged_out_page_short_circuits_without_model_call(website, tmp_pa
 
 
 async def test_serve_hosts_login_view_and_reports_it(tmp_path):
-    import json
     import os
     import socket
     import sys
@@ -87,11 +86,10 @@ async def test_serve_hosts_login_view_and_reports_it(tmp_path):
     async with stdio_client(params) as (read, write):
         async with ClientSession(read, write) as session:
             await session.initialize()
-            # No browser needed to learn where login lives; files_list carries no login block.
-            result = await session.call_tool("files_list", {})
-            assert not result.isError
+            # No browser needed for the login page to be up.
+            result = await session.list_tools()
             async with httpx.AsyncClient(base_url=f"http://127.0.0.1:{port}") as client:
                 page = await client.get("/")
                 assert page.status_code == 200
                 assert (await client.get("/screen")).status_code == 401
-            assert "login" not in json.loads(result.content[0].text)
+            assert {tool.name for tool in result.tools} == {"wiki_search"}

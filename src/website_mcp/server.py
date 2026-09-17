@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import json
+import os
 import sys
 import uuid
 from pathlib import Path
@@ -51,25 +52,42 @@ class ReadFile(Arguments):
     length: int = Field(default=262144, ge=1, le=1048576)
 
 
-BUILTINS = {
-    "website_task": (
-        WebsiteTask,
-        "Run an explicit custom workflow on this website. Supply every needed input string in values. May modify data.",
-    ),
-    "browser_status": (
-        Empty,
-        "Observe the current browser page without a model call. Starts the isolated browser if needed.",
-    ),
-    "files_list": (
-        Empty,
-        "List uploaded and downloaded files in this server's private file store.",
-    ),
-    "files_put": (PutFile, "Upload a file for website attachment. Returns its isolated file name."),
-    "files_read": (
-        ReadFile,
-        "Read a downloaded file as base64 in bounded chunks; returns next offset and EOF.",
-    ),
-}
+# browser_status exposes the raw page; it is for developers and the helper scripts only.
+DEBUG_TOOLS_ENV = "WEBSITE_MCP_DEBUG_TOOLS"
+
+
+def capability_tools(site):
+    """Framework capabilities the site opted into, named for the site."""
+    tools = {}
+    if site.custom_task:
+        tools[f"{site.name}_task"] = (
+            WebsiteTask,
+            f"Run any other {site.name} workflow, described in words with exact values to type. May modify data.",
+            False,
+        )
+    if site.attachments:
+        tools[f"{site.name}_list_files"] = (
+            Empty,
+            f"List files available to attach in {site.name} and files downloaded from it.",
+            True,
+        )
+        tools[f"{site.name}_put_file"] = (
+            PutFile,
+            f"Upload a file so a {site.name} tool can attach it. Returns the name to pass as an attachment.",
+            False,
+        )
+        tools[f"{site.name}_read_file"] = (
+            ReadFile,
+            f"Read a file downloaded from {site.name} as base64, in chunks; returns next offset and EOF.",
+            True,
+        )
+    if os.getenv(DEBUG_TOOLS_ENV):
+        tools["browser_status"] = (
+            Empty,
+            "Debug: observe the current browser page without a model call. Starts the browser if needed.",
+            True,
+        )
+    return tools
 
 
 def create_server(browser, policy=None, login_url=None):
@@ -82,8 +100,9 @@ def create_server(browser, policy=None, login_url=None):
         return result
 
     specs = {spec.name: spec for spec in browser.site.tools}
-    if len(specs) != len(browser.site.tools) or specs.keys() & BUILTINS.keys():
-        raise ValueError("Tool names must be unique and cannot shadow framework tools")
+    builtins = capability_tools(browser.site)
+    if len(specs) != len(browser.site.tools) or specs.keys() & builtins.keys():
+        raise ValueError("Tool names must be unique and cannot shadow capability tools")
 
     @server.list_tools()
     async def list_tools():
@@ -106,9 +125,9 @@ def create_server(browser, policy=None, login_url=None):
                 name=name,
                 description=description,
                 inputSchema=model.model_json_schema(),
-                annotations=ToolAnnotations(readOnlyHint=name not in {"files_put", "website_task"}),
+                annotations=ToolAnnotations(readOnlyHint=read_only),
             )
-            for name, (model, description) in BUILTINS.items()
+            for name, (model, description, read_only) in builtins.items()
         )
         return result
 
@@ -121,9 +140,9 @@ def create_server(browser, policy=None, login_url=None):
             for filename in task.uploads.values():
                 contained_file(browser.files, filename)
             result = with_login(await runner.run(task))
-        elif name in BUILTINS:
-            args = BUILTINS[name][0].model_validate(arguments)
-            if name == "website_task":
+        elif name in builtins:
+            args = builtins[name][0].model_validate(arguments)
+            if name.endswith("_task"):
                 for filename in args.uploads.values():
                     contained_file(browser.files, filename)
                 result = with_login(
@@ -140,13 +159,13 @@ def create_server(browser, policy=None, login_url=None):
                     result = with_login(await browser.observe())
                 else:
                     browser.files.mkdir(parents=True, exist_ok=True, mode=0o700)
-                    if name == "files_list":
+                    if name.endswith("_list_files"):
                         result = [
                             {"name": p.name, "size": p.stat().st_size}
                             for p in sorted(browser.files.iterdir())
                             if p.is_file() and not p.is_symlink()
                         ]
-                    elif name == "files_put":
+                    elif name.endswith("_put_file"):
                         data = base64.b64decode(args.data_base64, validate=True)
                         if len(data) > 10 * 1024 * 1024:
                             raise ValueError("File exceeds 10 MiB")

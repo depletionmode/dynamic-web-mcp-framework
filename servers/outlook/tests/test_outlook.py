@@ -43,15 +43,24 @@ async def test_stdio_handshake_lists_outlook_tools(tmp_path):
         command=sys.executable,
         args=["-m", "website_mcp.cli", "serve", "--site", SITE_FILE, "--state-dir", str(tmp_path)]
         + ["--host", ""],
-        env=dict(os.environ),
+        env={k: v for k, v in os.environ.items() if k != "WEBSITE_MCP_DEBUG_TOOLS"},
     )
     async with stdio_client(params) as (read, write):
         async with ClientSession(read, write) as session:
             await session.initialize()
             names = {tool.name for tool in (await session.list_tools()).tools}
-            assert {"outlook_search_mail", "outlook_send_mail", "browser_status"} <= names
+            assert {"outlook_search_mail", "outlook_send_mail"} <= names
+            capabilities = {"outlook_put_file", "outlook_read_file", "outlook_list_files"}
+            assert capabilities | {"outlook_task"} <= names
+            assert not any(n.startswith(("files_", "website_", "browser_")) for n in names)
             payload = base64.b64encode(b"attachment").decode()
             result = await session.call_tool(
-                "files_put", {"filename": "a.pdf", "data_base64": payload}
+                "outlook_put_file", {"filename": "../a.pdf", "data_base64": payload}
             )
-            assert not result.isError and json.loads(result.content[0].text)["size"] == 10
+            uploaded = json.loads(result.content[0].text)
+            assert not result.isError and uploaded["size"] == 10 and "/" not in uploaded["name"]
+            result = await session.call_tool(
+                "outlook_read_file", {"name": uploaded["name"], "length": 4}
+            )
+            first = json.loads(result.content[0].text)
+            assert not first["eof"] and first["next_offset"] == 4

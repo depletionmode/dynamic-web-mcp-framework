@@ -1,6 +1,6 @@
 # Outlook.com MCP server
 
-Drives Outlook.com webmail through the framework: folders, filtered and time-bounded search, reading messages, attachment download and upload, read state, flags, archive, trash and restore, moves, categories, folder management, drafts, sending, replies and forwarding. Twelve site tools plus the five framework tools. No Graph API is used; everything happens in the signed-in web UI.
+Drives Outlook.com webmail through the framework: folders, filtered and time-bounded search, reading messages, attachment download and upload, read state, flags, archive, trash and restore, moves, categories, folder management, drafts, sending, replies and forwarding. Twelve typed tools, plus `outlook_task` for any other Outlook workflow described in words and `outlook_put_file`, `outlook_read_file`, `outlook_list_files` for attachments. No Graph API is used; everything happens in the signed-in web UI.
 
 ```sh
 export TYPESAFE_API_KEY='your-key'
@@ -21,9 +21,9 @@ Search matching messages, dates inclusive:
 
 Call `outlook_search_mail` with this object. Identify a message for `outlook_read_mail`, `outlook_download_attachments` or `outlook_manage_mail` by observed sender, exact subject, timestamp and folder; subjects alone may be ambiguous. Search uses Outlook search syntax and the result reflects the filters the UI actually applied. Results are DOM evidence, not a normalized mailbox export, and pagination is bounded by `limit`.
 
-To attach files, call `files_put` with `{"filename": "invoice.pdf", "data_base64": "..."}` and pass the returned `name` in `attachments`. Downloads return a `name`; read the bytes with `files_read`, following `next_offset` until `eof`.
+To attach files, call `outlook_put_file` with `{"filename": "invoice.pdf", "data_base64": "..."}` and pass the returned `name` in `attachments`. Downloads return a `name`; read the bytes with `outlook_read_file`, following `next_offset` until `eof`.
 
-Anything outside the typed tools goes through `website_task`:
+Anything outside the typed tools goes through `outlook_task`:
 
 ```json
 {"goal": "Open Settings, then the Rules page, and capture the list of inbox rules. Do not change anything.", "values": {}, "max_steps": 20}

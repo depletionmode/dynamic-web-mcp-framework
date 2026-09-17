@@ -18,6 +18,8 @@ services:
       # From the environment that runs `docker compose`, the MCP client's env block, or ./.env.
       TYPESAFE_API_KEY: ${TYPESAFE_API_KEY:?export TYPESAFE_API_KEY or put it in .env next to compose.yaml}
       TYPESAFE_DEFAULT_MODEL: ${TYPESAFE_DEFAULT_MODEL:-jev-latest}
+      # Set to 1 to expose the browser_status debug tool; the helper scripts do this.
+      WEBSITE_MCP_DEBUG_TOOLS: ${WEBSITE_MCP_DEBUG_TOOLS:-}
     volumes:
       - data:/data
     shm_size: 256mb

@@ -4,7 +4,7 @@ Source: the user-provided pasted text attachment read at the start of the task. 
 
 | Requested outcome | Current artifact/evidence | Audit status |
 | --- | --- | --- |
-| Easily expose MCP tools controlling arbitrary websites | `Site`, `ToolSpec`, `Task`, typed schemas, module loading, runnable Wikipedia extension and generic `website_task`; real MCP tests | Framework implemented/tested; arbitrary UI coverage has documented bounds |
+| Easily expose MCP tools controlling arbitrary websites | `Site`, `ToolSpec`, `Task`, typed schemas, module loading, runnable Wikipedia server and opt-in `<site>_task`; real MCP tests | Framework implemented/tested; arbitrary UI coverage has documented bounds |
 | Headless Chromium execution | Playwright persistent contexts, CLI forbids headed serving; real Chromium tests and Docker smoke | Proven for exercised controls |
 | Driven by Jev, similar to jev-ultrafast | Batched action/target/value Choice heads; live paid model tests with independent outcome verification | Proven on representative fixture workflows |
 | Login/auth support with contained credentials | Human login portal, isolated persistent profiles, process locks and per-account directories/volumes | Mechanism tested; real account sign-in still pending |

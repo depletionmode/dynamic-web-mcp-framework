@@ -30,7 +30,7 @@ If the user gave the workflows already, skip the question and confirm your tool 
 
 ## Phase 1: recon the real site
 
-Use the framework's own browser, never your desktop browser, so you see what Jev will see. Start the site directory with a tool-less `site.py` and look at the public landing page; `browser_status` makes no model call.
+Use the framework's own browser, never your desktop browser, so you see what Jev will see. Start the site directory with a tool-less `site.py` and look at the public landing page. The helper scripts enable the `browser_status` debug tool, which returns the page without a model call.
 
 ```sh
 cd ~/dynamic-web-mcp-framework && uv sync --frozen
@@ -60,7 +60,7 @@ Think in the site's nouns. For each record type the user cares about, the usual 
 | --- | --- | --- |
 | Search or list with filters | `x_search_invoices(after, before, customer, status, limit)` | Filters must map to something the UI can do. Compute the site's search syntax in Python. Bound `limit`. |
 | Read one record | `x_read_invoice(identifier)` | Identity must be unambiguous: number, date plus name, exact subject. Say "stop if ambiguous" in the goal. |
-| Download | `x_download_invoice_pdf(identifier)` | Result carries the file name; the caller reads bytes with `files_read`. |
+| Download | `x_download_invoice_pdf(identifier)` | Result carries the file name; the caller reads bytes with `<site>_read_file`, so set `attachments=True`. |
 | Create as draft | `x_create_invoice_draft(...)` | Every line item field is an argument. Draft and submit are separate tools. |
 | Submit or send | `x_issue_invoice(draft_identifier)` | Irreversible. Description says so. `read_only=False`. |
 | Manage state | `x_manage_invoice(identifier, action)` | One tool with an enum of actions beats ten tiny tools. |
@@ -72,7 +72,7 @@ Rules:
 - `read_only=True` only for tools whose goal contains no mutation. It is an MCP hint, not enforcement.
 - Each `Task.goal` states the exact observable end condition, what to capture, and what not to touch. The framework's model-based completion check reads the goal, the final URL and title, the executed actions, downloads and the page text, so name the end state in words the page will show ("stop once the article heading is visible", "stop when the Sent Items list shows the message"). Put every string to be typed in `values` with a semantic label. Set `max_steps` per tool; searches need fewer than multi-page forms.
 - Add a deterministic `verifier` only for irreversible or high-stakes tools where the DOM gives hard evidence: a status badge, a row that now exists, a URL containing the record id, a downloaded file's size. It runs after Jev says done and makes the status `verified` or `unverified` on facts. Read-only tools normally rely on the model check and end `model_complete`.
-- Keep `website_task` for everything outside the catalog. Do not add a typed tool for one-off workflows.
+- A site's tool list is its own functionality only; never expose the browser or file store as such. Two framework capabilities are opt-in on `Site`, named for the site: `attachments=True` adds `<site>_put_file`, `<site>_read_file`, `<site>_list_files` for sites that upload or download files; `custom_task=True` adds `<site>_task` for sites broad enough that users will ask for workflows outside the catalog (Outlook yes, Wikipedia no). `browser_status` is a debug tool that only exists with `WEBSITE_MCP_DEBUG_TOOLS=1`, which the helper scripts set.
 
 Show the user the catalog as a table (tool, arguments, read-only, verifier yes or no) and get a yes before implementing. This is the one checkpoint that saves the most rework.
 

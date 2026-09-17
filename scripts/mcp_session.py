@@ -35,7 +35,9 @@ def params(target, local):
         command = "docker"
         args = ["compose", "-f", str(compose), "run", "--rm", "--no-deps"]
         args += ["--service-ports", "--name", service, "-T", service]
-    return StdioServerParameters(command=command, args=args, env=dict(os.environ))
+    return StdioServerParameters(
+        command=command, args=args, env=dict(os.environ) | {"WEBSITE_MCP_DEBUG_TOOLS": "1"}
+    )
 
 
 async def main(site, workdir, local):

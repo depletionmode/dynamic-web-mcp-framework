@@ -21,7 +21,7 @@ async def check(target):
         args=["compose", "-f", str(directory / "compose.yaml"), "run", "--rm", "--no-deps"]
         + ["--name", f"{service}-smoke", "-T", service, "serve", "--site", "/site/site.py"]
         + ["--account", "container-smoke"],
-        env=dict(os.environ),
+        env=dict(os.environ) | {"WEBSITE_MCP_DEBUG_TOOLS": "1"},
     )
     async with stdio_client(params) as (read, write):
         async with ClientSession(read, write) as session:

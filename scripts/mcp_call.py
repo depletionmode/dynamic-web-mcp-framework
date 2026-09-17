@@ -29,7 +29,7 @@ async def main(target, tool, arguments, local):
             command=str(root / ".venv/bin/website-mcp"),
             args=["serve", "--site", str(Path(target) / "site.py")]
             + ["--state-dir", str(root / ".state")],
-            env=dict(os.environ),
+            env=dict(os.environ) | {"WEBSITE_MCP_DEBUG_TOOLS": "1"},
         )
     else:
         params = StdioServerParameters(
@@ -37,7 +37,7 @@ async def main(target, tool, arguments, local):
             args=["compose", "-f", str(compose), "run", "--rm", "--no-deps"]
             + ["--service-ports", "--name", service, "-T", service],
             # The MCP SDK strips the environment by default; Compose needs TYPESAFE_API_KEY.
-            env=dict(os.environ),
+            env=dict(os.environ) | {"WEBSITE_MCP_DEBUG_TOOLS": "1"},
         )
     async with stdio_client(params) as (read, write):
         async with ClientSession(read, write) as session:

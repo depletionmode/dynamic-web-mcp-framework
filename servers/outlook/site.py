@@ -124,7 +124,8 @@ class Compose(Arguments):
     subject: str
     body: str = Field(description="Exact plain text body")
     attachments: list[str] = Field(
-        default_factory=list, description="Names previously returned by files_put or files_list"
+        default_factory=list,
+        description="Names previously returned by outlook_put_file or outlook_list_files",
     )
 
 
@@ -218,6 +219,8 @@ SITE = Site(
         "login.microsoft.com",
         "microsoft.com",
     ),
+    attachments=True,
+    custom_task=True,
     login_domains=(
         "login.live.com",
         "login.microsoftonline.com",

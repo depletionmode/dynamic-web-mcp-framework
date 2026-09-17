@@ -41,6 +41,10 @@ class Site:
     guidance: str = ""
     # Hosts that mean there is no authenticated session (login pages, logged-out landing pages).
     login_domains: tuple[str, ...] = ()
+    # Opt-in capabilities, exposed as <name>_* tools. A site's MCP surface is its own
+    # functionality only; the browser and file store are inner workings.
+    attachments: bool = False  # <name>_put_file / <name>_read_file / <name>_list_files
+    custom_task: bool = False  # <name>_task: any workflow on this site described in words
 
     def permits(self, url: str) -> bool:
         parsed = urlparse(url)
