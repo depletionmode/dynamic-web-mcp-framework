@@ -1,11 +1,10 @@
-"""Human-operated login in the same isolated headless profile; no model calls."""
+"""Human-operated login page served by the MCP process on its own browser; no model calls."""
 
 from __future__ import annotations
 
 import asyncio
 import secrets
 import sys
-from contextlib import asynccontextmanager
 from pathlib import Path
 
 import uvicorn
@@ -17,19 +16,7 @@ from starlette.routing import Route
 HTML = Path(__file__).with_name("auth.html").read_text()
 
 
-def auth_app(browser, token, manage_browser=True):
-    """manage_browser=False when the MCP server owns the browser lifecycle."""
-
-    @asynccontextmanager
-    async def lifespan(app):
-        if manage_browser:
-            await browser.start()
-        try:
-            yield
-        finally:
-            if manage_browser:
-                await browser.close()
-
+def auth_app(browser, token):
     def authorized(request):
         return secrets.compare_digest(request.headers.get("authorization", ""), f"Bearer {token}")
 
@@ -93,29 +80,25 @@ def auth_app(browser, token, manage_browser=True):
             Route("/", index),
             Route("/screen", screenshot),
             Route("/action", action, methods=["POST"]),
-        ],
-        lifespan=lifespan,
+        ]
     )
 
 
 class LoginView:
-    """Token-protected human login page; runs standalone or beside the MCP server."""
+    """Token-protected human login page running beside the MCP server."""
 
-    def __init__(self, browser, host, port, manage_browser=False):
+    def __init__(self, browser, host, port):
         self.token = secrets.token_urlsafe(32)
         self.url = f"http://127.0.0.1:{port}/#{self.token}"
         self.server = uvicorn.Server(
             uvicorn.Config(
-                auth_app(browser, self.token, manage_browser),
+                auth_app(browser, self.token),
                 host=host,
                 port=port,
                 log_level="warning",
                 access_log=False,
             )
         )
-
-    async def serve(self):
-        await self.server.serve()
 
     async def serve_in_background(self):
         """Never lets a bind failure kill the MCP server; uvicorn raises SystemExit on it."""
@@ -128,12 +111,3 @@ class LoginView:
 
     def stop(self):
         self.server.should_exit = True
-
-
-async def login(browser, host, port):
-    view = LoginView(browser, host, port, manage_browser=True)
-    print(
-        f"Login URL: {view.url}\nComplete login, then Ctrl-C to save/close the profile.",
-        file=sys.stderr,
-    )
-    await view.serve()

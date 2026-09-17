@@ -34,7 +34,7 @@ The offline suite has 15 tests plus two explicitly skipped live-model tests. The
 
 ## Remaining live acceptance
 
-Use dedicated test accounts. Login can be completed in the provided local headless view, retaining state in the relevant Docker volume. Read-only tests can then inspect actual data; sends and other externally visible mutations require explicit test instructions and appropriate test records.
+Use dedicated test accounts. Login is completed in the login view served by the running MCP container, retaining state in its Docker volume. Read-only tests can then inspect actual data; sends and other externally visible mutations require explicit test instructions and appropriate test records.
 
 | Requirement | Implemented interface | Remaining evidence |
 | --- | --- | --- |

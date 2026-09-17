@@ -78,7 +78,7 @@ Show the user the catalog as a table (tool, arguments, read-only, verifier yes o
 1. Create `src/jev_mcp/sites/<site>.py` exporting `SITE`. `load_site` finds it by short name; no registry edit.
 2. Set `name`, `start_url`, `domains`, `login_domains`, `guidance` from your recon notes. Guidance is where site quirks live: "Save autosaves after 2 seconds", "the list is virtualized, capture before scrolling", "opening a record marks it read".
 3. Implement argument models, task factories and verifiers. Computed strings (search syntax, formatted dates, totals the UI expects typed) live in methods on the argument model, as `MailQuery.search()` does for Outlook.
-4. Add a Compose service by copying the `outlook` block: new service name, `--site <site>`, a new host port (8765 is Outlook; take the next free one), the same port in `--port`, and a new named volume. One container per site, always.
+4. Add a Compose service by copying the `outlook-mcp` block. Naming convention, unless the user asks for something else: the service, the container (`--name` on `compose run`, since Compose ignores `container_name` for one-off runs) and the MCP server entry in the client config are all `<site>-mcp`. Set `--site <site>`, a new host port (8765 is Outlook; take the next free one), the same port in `--port`, and a new named volume `<site>-data`. One container per site, always; there is no separate login container.
 5. Tests, all offline and free:
    - argument validation, including the computed strings;
    - the stdio handshake test in `tests/test_contracts.py`: add your site and one expected tool name;
@@ -94,24 +94,28 @@ The Docker check proves the container starts, lists your tools, reaches the publ
 
 ## Phase 4: get the user signed in
 
-The container hosts its own login view. Start it, hand the URL to the user, and wait. Do not ask for credentials; do not type them.
+The MCP container hosts its own login view; there is no separate login step. Open a persistent client session, which starts the container and prints the login URL, then hand the URL to the user and wait. Do not ask for credentials; do not type them.
 
 ```sh
 export TYPESAFE_API_KEY=...   # or put it in .env next to compose.yaml
-docker compose run --rm --service-ports --name jev-<site>-login -T <site> login --site <site> --host 0.0.0.0 --port <port>
+uv run python scripts/mcp_session.py <site> /tmp/<site>-session &
+cat /tmp/<site>-session/status.json     # has the login URL and login.required
 ```
 
-Tell the user: open the printed `http://127.0.0.1:<port>/#<token>` URL, sign in including MFA, and say when the app's main screen is showing. Then stop that container (`docker rm -f jev-<site>-login`). The session now lives in the site's volume, so every later container starts signed in.
+Tell the user: open the `http://127.0.0.1:<port>/#<token>` URL, sign in including MFA, and say when the app's main screen is showing. The session lives in the site's volume, so every later container starts signed in. Keep this session open for Phase 5; it is the same container.
 
 If a tool ever returns `"login": {"required": true, "url": ...}` the session expired. Give the user that URL; the MCP client can stay connected.
 
 ## Phase 5: live acceptance
 
-Each call below is one paid Jev run. Use `scripts/mcp_call.py`, which starts the container, makes one call through a real MCP client, and prints the JSON result:
+Each call below is one paid Jev run. Append a call to the open session's command file and read the numbered result; every call goes through a real MCP client, exactly as an agent's would:
 
 ```sh
-uv run python scripts/mcp_call.py <site> <site>_list_things '{"limit": 10}'
+echo '{"tool": "<site>_list_things", "arguments": {"limit": 10}}' >> /tmp/<site>-session/commands.jsonl
+sleep 60; cat /tmp/<site>-session/results/1.json
 ```
+
+`scripts/mcp_call.py <site> <tool> '<json>'` does a single call in a fresh container when you do not need the session.
 
 Order of work:
 

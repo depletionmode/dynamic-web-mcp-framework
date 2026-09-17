@@ -1,7 +1,8 @@
 services:
-  outlook:
+  outlook-mcp:
     build: .
     image: jev-browser-mcp:local
+    # `compose run` ignores container_name; clients pass `--name outlook-mcp` (see README).
     init: true
     stdin_open: true
     # MCP over stdio; the human login view listens inside the container on 8765.

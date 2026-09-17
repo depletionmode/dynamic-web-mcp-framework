@@ -26,7 +26,7 @@ async def main(site, tool, arguments, local):
         params = StdioServerParameters(
             command="docker",
             args=["compose", "-f", str(root / "compose.yaml"), "run", "--rm", "--no-deps"]
-            + ["--service-ports", "-T", site],
+            + ["--service-ports", "--name", f"{site}-mcp", "-T", f"{site}-mcp"],
             # The MCP SDK strips the environment by default; Compose needs TYPESAFE_API_KEY.
             env=dict(os.environ),
         )

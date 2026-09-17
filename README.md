@@ -24,13 +24,13 @@ uv run jev-mcp serve --site outlook
 
 **Login happens inside the running server.** Every tool result carries a `login` block: `{"required": true, "url": "http://127.0.0.1:8765/#<token>"}` means the browser is on a sign-in or logged-out page. Open that URL: it is a local, token-protected page that shows and controls the same headless Chromium, with no Jev calls. Type the password and MFA there, not into MCP arguments, then retry the tool. While the page is a login page, tools return `login_required` without spending model calls. The session persists in the profile, so later container starts are already signed in until the site expires it.
 
-`login --site outlook` runs the same page without MCP, for signing in ahead of time. For a normal visible Chromium login, install full Chromium (`uv run playwright install chromium`) and use `login --headed`. Only one process can hold a profile at a time.
+Only one process can hold a profile at a time.
 
-Profiles live at `.state/<site>/<account>/profile`; files at `.state/<site>/<account>/files`. `--state-dir` changes the root; `--account work` creates another isolated account. Reuse the same options for login and serving. There is no connection to your everyday browser or imported machine credentials.
+Profiles live at `.state/<site>/<account>/profile`; files at `.state/<site>/<account>/files`. `--state-dir` changes the root; `--account work` creates another isolated account. There is no connection to your everyday browser or imported machine credentials.
 
 ## Separate Docker containers
 
-One container per MCP server. The container speaks MCP on stdio and publishes its login view on `127.0.0.1:8765` (`--service-ports` is what publishes it for `compose run`). The first time a tool reports `login.required`, open the URL from the result, sign in, and retry; the profile volume keeps the session for later containers.
+One container per MCP server, named `<site>-mcp`. The container speaks MCP on stdio and publishes its login view on `127.0.0.1:8765` (`--service-ports` is what publishes it for `compose run`; `--name` gives the container its name, because `compose run` ignores `container_name`). The first time a tool reports `login.required`, open the URL from the result, sign in, and retry; the profile volume keeps the session for later containers.
 
 ```sh
 docker compose build
@@ -45,19 +45,14 @@ Use the following MCP client configuration, replacing the path with your checkou
   "mcpServers": {
     "outlook": {
       "command": "docker",
-      "args": ["compose", "-f", "/absolute/path/jev-driven-browser-mcp/compose.yaml", "run", "--rm", "--no-deps", "--service-ports", "-T", "outlook"],
+      "args": ["compose", "-f", "/absolute/path/jev-driven-browser-mcp/compose.yaml", "run", "--rm", "--no-deps", "--service-ports", "--name", "outlook-mcp", "-T", "outlook-mcp"],
       "env": {"TYPESAFE_API_KEY": "your-key"}
     }
   }
 }
 ```
 
-To sign in ahead of any MCP client, run the login page alone in the same container and volume:
-
-```sh
-docker compose run --rm --service-ports outlook login --site outlook --host 0.0.0.0
-# Open the printed URL, sign in, then Ctrl-C.
-```
+There is no separate login step or container: the client's own container serves the login page. To sign in from a terminal instead, `scripts/mcp_session.py` keeps one client session open and prints the login URL.
 
 Each client starts its own container. The named volume preserves the login. Do not run `docker compose up` and stdio `compose run` simultaneously against the same account. For local stdio, use the absolute `.venv/bin/jev-mcp` executable and absolute `--state-dir`.
 
@@ -89,7 +84,7 @@ Call `website_task`. It has the same isolated browser, domain restrictions and J
 
 ## Operational behavior
 
-- Tools on a profile execute serially. A filesystem lock prevents concurrent login/MCP processes from corrupting it.
+- Tools on a profile execute serially. A filesystem lock prevents concurrent MCP processes from corrupting it.
 - Model outputs never become selectors, JavaScript, shell commands or arbitrary URLs. Targets must be observed DOM nodes. Stale nodes and changed form values are rejected before input; the runner can re-observe up to three times when no input was dispatched. Covered controls fail execution.
 - Models receive page text and caller arguments. Treat the TypeSafe service as a processor of email/business data. The dedicated login view bypasses the model. Password fields are redacted from snapshots and excluded from typing candidates.
 - Website text is explicitly treated as untrusted in prompts. This is not a hard security boundary against prompt injection. MCP read-only hints describe intent; arbitrary DOM clicks cannot guarantee zero side effects (opening mail can mark it read).
