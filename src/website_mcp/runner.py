@@ -1,11 +1,32 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import json
 import os
 from uuid import uuid4
 
 from .browser import StaleObservation
 from .spec import Task
+
+# Guardrails against burning model calls without getting anywhere. Every stop still returns
+# the page evidence and history so the caller can retry with a narrower goal.
+NO_PROGRESS_STEPS = 4  # consecutive unchanged observations
+LOOP_REPEATS = 3  # identical executed action on an identical page
+CONFIDENCE_WINDOW = 5
+MIN_MEAN_CONFIDENCE = 0.4
+DEFAULT_TIMEOUT = "120"
+
+
+def fingerprint(observation):
+    """Stable digest of what the page shows: URL, text, control names and values."""
+    digest = hashlib.sha256()
+    digest.update(observation["url"].encode())
+    for frame in observation["frames"]:
+        digest.update(frame["text"].encode())
+    for control in observation["controls"]:
+        digest.update(json.dumps([control["name"], control.get("value")]).encode())
+    return digest.hexdigest()
 
 
 class Runner:
@@ -22,13 +43,21 @@ class Runner:
             status = "step_limit"
             verification = None
             stale_attempts = 0
+            last_fingerprint, unchanged = None, 0
+            repeats, confidences = {}, []
             try:
-                async with asyncio.timeout(float(os.getenv("TASK_TIMEOUT", "240"))):
+                async with asyncio.timeout(float(os.getenv("TASK_TIMEOUT", DEFAULT_TIMEOUT))):
                     for _ in range(task.max_steps):
                         observation = await self.browser.observe()
                         observation["downloads"] = self.browser.downloads[first_download:]
                         if self.browser.needs_login():
                             status = "login_required"
+                            break
+                        current = fingerprint(observation)
+                        unchanged = unchanged + 1 if current == last_fingerprint else 0
+                        last_fingerprint = current
+                        if unchanged >= NO_PROGRESS_STEPS:
+                            status = "no_progress"
                             break
                         decision = await self.policy.decide(
                             task, observation, history, self.browser.site.guidance
@@ -80,9 +109,26 @@ class Runner:
                                 status = "capture_limit"
                                 break
                             continue
+                        confidences.append(decision.confidence)
+                        recent = confidences[-CONFIDENCE_WINDOW:]
+                        if (
+                            len(recent) >= CONFIDENCE_WINDOW
+                            and sum(recent) / len(recent) < MIN_MEAN_CONFIDENCE
+                        ):
+                            status = "low_confidence"
+                            break
+                        # Waiting on an unchanged page is the no-progress case, not a loop.
+                        repeat_key = (decision.action, decision.target, decision.value, current)
+                        if (
+                            decision.action != "wait"
+                            and repeats.get(repeat_key, 0) >= LOOP_REPEATS - 1
+                        ):
+                            status = "looping"
+                            break
                         try:
                             await self.browser.act(decision.action, decision.target, decision.value)
                             entry["executed"] = True
+                            repeats[repeat_key] = repeats.get(repeat_key, 0) + 1
                             stale_attempts = 0
                         except StaleObservation:
                             entry["error"] = "observation_changed_no_action_dispatched"

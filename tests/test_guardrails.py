@@ -1,0 +1,60 @@
+from website_mcp.browser import Browser
+from website_mcp.policy import Decision
+from website_mcp.runner import Runner
+from website_mcp.spec import Site, Task
+
+
+class Scripted:
+    """Policy stub: returns the next scripted decision; verify is never reached."""
+
+    def __init__(self, decide):
+        self.calls = 0
+        self._decide = decide
+
+    async def decide(self, task, observation, history, guidance):
+        self.calls += 1
+        return self._decide(self.calls, observation)
+
+    async def close(self):
+        pass
+
+
+def control(observation, name):
+    return next(c["id"] for c in observation["controls"] if c["name"] == name)
+
+
+async def run(website, tmp_path, decide, goal="Do the thing"):
+    browser = Browser(Site("fixture", website, ("127.0.0.1",), ()), tmp_path)
+    policy = Scripted(decide)
+    try:
+        result = await Runner(browser, policy).run(Task(goal, {"x": "1"}, max_steps=40))
+    finally:
+        await browser.close()
+    return result, policy
+
+
+async def test_unchanged_page_stops_before_more_model_calls(website, tmp_path):
+    result, policy = await run(website, tmp_path, lambda n, o: Decision("wait"))
+    assert result["status"] == "no_progress"
+    # Four unchanged observations after the first; the fifth stops before asking the model.
+    assert policy.calls == 4
+
+
+async def test_same_action_on_same_page_stops(website, tmp_path):
+    result, policy = await run(
+        website, tmp_path, lambda n, o: Decision("click", control(o, "Save draft"))
+    )
+    assert result["status"] == "looping"
+    executed = [s for s in result["steps"] if s.get("executed")]
+    assert len(executed) == 3  # first click changed the page; two more on the unchanged page
+
+
+async def test_persistently_low_confidence_stops(website, tmp_path):
+    # Each fill changes a field value, so the page keeps changing and no other guard fires.
+    result, policy = await run(
+        website,
+        tmp_path,
+        lambda n, o: Decision("fill", control(o, "Recipient"), str(n), confidence=0.3),
+    )
+    assert result["status"] == "low_confidence"
+    assert policy.calls == 5

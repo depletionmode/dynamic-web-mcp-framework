@@ -74,7 +74,7 @@ Profiles live at `.state/<site>/<account>/profile`, files at `.state/<site>/<acc
 - Website text is treated as untrusted in prompts, which is not a hard boundary against prompt injection. Read-only hints describe intent; a click cannot guarantee zero side effects.
 - Timeout, low confidence, ambiguous targets, model context limits or execution errors return an incomplete status. The framework never automatically retries a possibly committed action. Reconcile the visible state before retrying a mutation.
 - Common HTML/ARIA controls, open shadow DOM, allowed-origin frames, popups, nested scrolling, uploads and downloads are supported. Canvas-only UIs, closed shadow DOM, native OS dialogs and anti-bot walls need a human.
-- Runs are bounded: 60 steps by default, 240 seconds, 25 captured pages, 350 controls and 12,000 text characters per frame. `TASK_TIMEOUT` and `JEV_MIN_CONFIDENCE` are environment overrides. Files upload up to 10 MiB and read back in chunks of up to 1 MiB.
+- Runs are bounded: 60 steps by default, 120 seconds, 25 captured pages, 350 controls and 12,000 text characters per frame. `TASK_TIMEOUT` and `JEV_MIN_CONFIDENCE` are environment overrides. Three guardrails stop runs that burn model calls without progress: `no_progress` after four consecutive unchanged observations (checked before the next model call), `looping` when the same action would execute a third time on an identical page, and `low_confidence` when the mean confidence of the last five decisions falls below 0.4. Files upload up to 10 MiB and read back in chunks of up to 1 MiB.
 
 ## Container security
 
