@@ -91,4 +91,14 @@ uv run python scripts/check_docker.py servers/wikipedia         # container smok
 uv run python scripts/mcp_call.py servers/wikipedia wiki_search '{"query": "Ada Lovelace"}'   # paid
 ```
 
-Design references: [Jev Ultrafast](https://github.com/browser-use/jev-ultrafast), [TypeSafe Python SDK](https://docs.typesafe.ai/sdk/python), [Playwright persistent contexts](https://playwright.dev/python/docs/api/class-browsertype#browser-type-launch-persistent-context), and the [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk).
+## Prior art
+
+This project is inspired by [browser-use/jev-ultrafast](https://github.com/browser-use/jev-ultrafast), which showed that TypeSafe's Jev model can drive a browser by choosing among indexed, observed controls instead of generating code or selectors. This framework keeps that indexed-choice idea and wraps it in what an MCP server for a specific site needs: typed tools with exact caller-supplied values, an isolated persistent Chromium profile per site, a human login view that keeps credentials away from the model, evidence-based results, and one container per site.
+
+Related work worth knowing:
+
+- [browser-use](https://github.com/browser-use/browser-use), the general-purpose browser agent library from the same team.
+- [microsoft/playwright-mcp](https://github.com/microsoft/playwright-mcp), which exposes raw browser actions (click, type, navigate) as MCP tools for a general model to drive; here the site tools are the MCP surface and the browser driving is internal.
+- [browserbase/stagehand](https://github.com/browserbase/stagehand), natural-language browser automation on Playwright.
+- [TypeSafe Python SDK](https://docs.typesafe.ai/sdk/python) and the [speculative fan-out pattern](https://docs.typesafe.ai/patterns/fan-out) used to ask Jev the action, target and value questions in one batch.
+- [Playwright persistent contexts](https://playwright.dev/python/docs/api/class-browsertype#browser-type-launch-persistent-context) and the [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk).
