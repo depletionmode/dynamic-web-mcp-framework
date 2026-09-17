@@ -69,3 +69,16 @@ async def test_capture_is_recorded_as_executed(website, tmp_path):
     captures = [step for step in result["steps"] if step.get("action") == "capture"]
     assert [step["captured_page"] for step in captures] == [1, 2, 3, 4]
     assert all(step["executed"] for step in captures)
+
+
+async def test_home_returns_to_the_sites_start_page(website, tmp_path):
+    """Following an outbound link can strand the browser; home is always the way back."""
+    browser = Browser(Site("fixture", website, ("127.0.0.1", "example.org"), ()), tmp_path)
+    try:
+        await browser.start()
+        await browser.page.goto(website + "frame")
+        assert browser.page.url.endswith("/frame")
+        await browser.act("home")
+        assert browser.page.url == website
+    finally:
+        await browser.close()

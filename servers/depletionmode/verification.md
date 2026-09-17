@@ -29,9 +29,18 @@ Every run above is a genuine `unverified`, not a failure. The framework's model 
 
 The captured evidence is nonetheless complete, and reproducibly so — the `list_index` coverage of `0x01`–`0x33` was byte-identical across four runs. A deterministic `Task.verifier` was considered and deliberately not added: the only thing it could cheaply assert is that the footer was reached, which would not prove the requested section was captured, so it would turn the status green on a narrower claim than the tool makes. An honest `unverified` with complete evidence is the accurate report.
 
+## Recovering from an off-site page
+
+Because this site's `domains` follow outbound links, a `depletionmode_read_post` on an off-site entry leaves the browser on that external page, which carries no link back here. Before the framework had a `home` operation the next call started stranded there and failed; a client was seen reporting "the first list call landed on leftover Origin page state".
+
+Exercised on 2026-09-17: `read_post` on "A PDF Picked My Model" ended on `www.originhq.com/research/a-pdf-picked-my-model`, and the following `list_index` call recovered on its first step (`home`, confidence 0.99), landed on `https://depletionmode.com/` and captured the 2026 articles. `guidance` tells the model to use `home` whenever the current page is not the front page.
+
 ## Framework changes this build required
 
 Two defects surfaced here and were fixed in the framework, with a regression test in `tests/test_guardrails.py`:
 
 - `runner.py` recorded a `capture` in history without `executed: true`, while the policy rules state that only executed actions changed the browser. Every capture therefore read to the model as a failed action and was retried until the no-progress guard killed the run, making any multi-screen listing impossible. Single-capture sites such as Wikipedia never hit it.
 - `policy.py` passed the completion check `captured_pages` as URLs only, although its rubric allows captured evidence to satisfy a listing goal. It now passes each capture's leading text as well.
+- There was no way to return to a site's own start page. The model can only click what it observes, and `start_url` is loaded once when the page is first opened, so any site permitting outbound links stranded the browser on the first external page it reached. A `home` operation, navigating to the site's own `start_url` and available on every site, was added to the action vocabulary.
+
+Also worth knowing when handing a server over: the live-test helpers (`scripts/mcp_call.py`, `scripts/mcp_session.py`) start the container with `--debug`, which writes `WEBSITE_MCP_DEBUG_TOOLS=1` into `servers/<site>/.env` and exposes the internal `browser_status` tool to every connected client. Finish with a plain `bin/site-mcp up <site>`; this server's clients now see its four tools and nothing else, checked over raw HTTP rather than through the helpers, which re-enable debug.

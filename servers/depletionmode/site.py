@@ -83,10 +83,11 @@ class Find(Arguments):
 
 # A tool call starts wherever the previous one left the browser, not at the front page.
 HOME = (
-    "If the browser is not already on the depletionmode.com front page, go there first: use the "
-    "'\u2190 back to the issue' link in the header of a post or the archive page. The masthead "
-    "'2OF1 \u00b7 the depletionmode zine' marks the top of the front page: if it is not on screen the "
-    "page is scrolled down, so scroll up until it is before looking for anything. "
+    "If the browser is not already on the depletionmode.com front page, use home to go there; a "
+    "previous call may have left it on a post, on the archive, or on an off-site page that has no "
+    "link back. The masthead '2OF1 \u00b7 the depletionmode zine' marks the top of the front page: if "
+    "it is not on screen the page is scrolled down, so scroll up until it is before looking for "
+    "anything. "
 )
 
 
@@ -119,12 +120,13 @@ SITE = Site(
         "'Archive: the old stuff'. The right column holds 'poc', then 'tools', then 'patents', and stops "
         "about two thirds of the way down. The 'about me' block and the footer span the full width at the "
         "very bottom. "
-        "Each call starts wherever the previous one left the browser, which may be a post page, the "
-        "archive, or part-way down a page that an earlier call had scrolled; check the current page and "
-        "scroll position before assuming either, and use scroll_up to get back to the top of a page when "
-        "the goal asks to read it from the beginning. Every post page and the archive page carry a header with '\u2190 back to the issue', which "
-        "returns to the front page, alongside links to the 'poc', 'tools', "
-        "'talks/articles/publications' and 'patents' sections; the front page itself has no such nav. "
+        "Each call starts wherever the previous one left the browser: a post page, the archive, an "
+        "off-site article a previous read followed, or part-way down a page an earlier call scrolled. "
+        "Check the current page before assuming it is the front page. The home operation always returns "
+        "to this site's front page, and is the only way back from an off-site page, which carries no "
+        "link to depletionmode.com; scroll_up returns to the top of whichever page is open. Post and "
+        "archive pages also have a header with '\u2190 back to the issue' and links to the 'poc', "
+        "'tools', 'talks/articles/publications' and 'patents' sections; the front page has no such nav. "
         "An observation only contains what is inside the viewport right now; anything above or below is "
         "absent, not missing. One scroll_down moves a little less than one screen, so capture and "
         "scroll_down must strictly alternate: two scrolls in a row jump over a screen and lose the entries "
@@ -184,8 +186,8 @@ SITE = Site(
                     "sits above entries grouped by year. If that page is already open, scroll up until "
                     "the 'Archive' heading is on screen. Otherwise reach it by its only link, "
                     "'Archive: the old stuff', at the very foot of the front page's left-hand column: "
-                    "return to the front page if a post is open, then scroll down until that link is on "
-                    "screen and click it. "
+                    "use home first if any other page is open, then scroll down the front page until "
+                    "that link is on screen and click it. "
                     f"With the 'Archive' heading on screen, capture the page one screen at a time so "
                     f"the captured screens show the entries, {a.span()}, up to {a.limit} of them, with "
                     "their titles and dates. " + a.enough("the footer") + "Do not open any entry."

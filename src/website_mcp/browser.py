@@ -207,6 +207,13 @@ class Browser:
         if action == "wait":
             await asyncio.sleep(0.5)
             return
+        if action == "home":
+            # The site's own start_url, never a model-supplied address: the way back when a
+            # page leaves the site, or a call inherits an unexpected page from the previous one.
+            await self.page.goto(self.site.start_url, wait_until="domcontentloaded")
+            await self.page.locator("body").wait_for(state="attached", timeout=20000)
+            await asyncio.sleep(0.15)
+            return
         if action in {"scroll_down", "scroll_up"} and target is None:
             await self.page.mouse.move(1000, 700)
             await self.page.mouse.wheel(0, 700 if action == "scroll_down" else -700)

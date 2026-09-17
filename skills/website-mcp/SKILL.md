@@ -59,7 +59,7 @@ Most wasted live runs come from writing goals against the page you see in a brow
 - **An observation is a viewport clip, not the page.** `snapshot.js` keeps only elements and text nodes whose rect intersects the 1440x1000 viewport. Anything above or below simply does not exist for that step: not truncated, absent. A goal that says "list all X" on a page taller than one screen is a goal to walk the page.
 - **`scroll_down` is a fixed 700px wheel**, slightly less than the viewport. So one scroll between captures overlaps safely, and **two scrolls in a row skip a band of the page**. Tell the model capture and scroll strictly alternate.
 - **`capture` changes nothing.** It records the current screen. Two captures in a row record the same screen twice, and four consecutive unchanged observations trip `NO_PROGRESS_STEPS` and kill the run. "Never capture twice in a row; after a capture, scroll or finish" belongs in `guidance`, where it is seen on every decision, not only in one goal.
-- **A call starts wherever the last call left the browser.** `start_url` is only loaded when the page is first opened. On a long-running container, tool #2 begins on whatever page and scroll position tool #1 ended on. Every goal that assumes a starting page needs a preamble that gets there, and the model cannot read the scroll offset: give it a *visible* test instead, such as "the masthead marks the top; if it is not on screen, scroll up until it is".
+- **A call starts wherever the last call left the browser.** `start_url` is only loaded when the page is first opened. On a long-running container, tool #2 begins on whatever page and scroll position tool #1 ended on. Every goal that assumes a starting page needs a preamble that gets there, and the model cannot read the scroll offset: give it a *visible* test instead, such as "the masthead marks the top; if it is not on screen, scroll up until it is". The `home` operation navigates back to the site's own `start_url` and is available on every site; say in `guidance` when to reach for it. This matters most when you widen `domains` to follow outbound links, because an external page has no link back to the site and clicking is the only other way to move: without `home` the browser is stranded there and every later call starts on it.
 - **The completion judge sees less than you think.** It gets the final page text, the executed actions and each capture's URL and leading text. It never sees a structured result, because the framework does not produce one. A goal phrased as an extraction ("record each row's name, date and status") asks for something no evidence can show, and scores badly however well the run went. Phrase the end state as what the page displays: "stop once the footer is on screen".
 - **Confidence is a signal, read it.** Step confidences around 0.3-0.5 mean the goal is ambiguous to the model, and a run that thrashes between `scroll_up` and `scroll_down` usually means the goal has too many conditional branches. One clear path beats three alternatives; `low_confidence` and `looping` are the guards catching that.
 
@@ -74,7 +74,9 @@ page = await browser.new_page(viewport={"width": 1440, "height": 1000})
 await page.goto(URL, wait_until="networkidle")
 for step in range(6):
     if step:
-        await page.mouse.move(1000, 700); await page.mouse.wheel(0, 700); await asyncio.sleep(0.4)
+        await page.mouse.move(1000, 700)
+        await page.mouse.wheel(0, 700)
+        await asyncio.sleep(0.4)
     handle = await page.evaluate_handle(f"({SNAP})()")
     print(await page.evaluate("scrollY"), await handle.evaluate("s => s.text"))
 ```
@@ -86,7 +88,7 @@ From that you learn how many screens the page is, which sections share a screen,
 Before designing a tool around a control, confirm its mechanism. A "Download" control may be an `<a download>`, an `<a>` to a file, or a `<button>` calling `window.print()`, which opens the browser's print dialog and **can never produce a file in headless Chromium**. Test it directly rather than assuming:
 
 ```python
-async with page.expect_download(timeout=15000) as dl:   # raises if nothing downloads
+async with page.expect_download(timeout=15000) as dl:  # raises if nothing downloads
     await page.get_by_text("Download PDF").first.click()
 ```
 
@@ -172,6 +174,8 @@ Common failures and the fix that worked:
 - `looping` or `low_confidence` with the model scrolling back and forth: the goal offers several conditional paths, or its stop condition cannot be checked against anything on screen. Cut it to one path and one visible end state.
 - Content that the page clearly shows never appears in any capture: the model scrolled past it two notches at a time, or the section sits in a shorter column that ended higher up the page. Measure the geometry.
 - A listing that only ever returns the oldest or newest part: the call started part-way down the page from the previous call. Anchor the goal to a visible top-of-page marker.
+- Every tool suddenly failing, or a result mentioning a page from a different site: an earlier call followed an outbound link and the browser stayed there. Goals whose first move needs the site itself should say to use `home` when the current page is not on it.
+- Clients see a `browser_status` tool: the container is still running with `WEBSITE_MCP_DEBUG_TOOLS=1`, which `--debug` wrote to `servers/<site>/.env` during recon and live tests. Finish with a plain `bin/site-mcp up <site>`, which clears it, and confirm the tool list before handing over.
 - `unstable_page`: the page re-renders between observation and action. Add a wait condition to the goal ("wait until the list has loaded") before the action.
 - `action_error` after a mutation: never re-run blindly. Observe the state and reconcile with the user.
 - Off-site destinations, when the site links out and the user asked to follow: other people's pages come with cookie banners and modal overlays over the content. Say so in `guidance` ("dismiss the overlay, then read the heading and body"), and expect shallower evidence than on the site itself.
@@ -182,7 +186,7 @@ When you inspect a result while debugging, print the **whole** captured text, or
 
 1. `servers/<site>/verification.md`: the date, the exact commands run, and a table of each tool with the evidence seen (or "not yet verified"). Do not round up.
 2. `servers/<site>/README.md`: what the server does, the `bin/site-mcp up <site>` line (it prints the client add commands), one example call per tool family, known limitations.
-3. Commit (never `servers/<site>/.env`). The container is ready when the gates in Phase 3 pass and the verification table shows real evidence for the tools the user asked for.
+3. Restart the container without debug tools (`bin/site-mcp up <site>`, no `--debug`) and list its tools once more: clients must see the site's own tools and nothing else. Commit (never `servers/<site>/.env`). The container is ready when the gates in Phase 3 pass and the verification table shows real evidence for the tools the user asked for.
 4. Tell the user what works, what was not exercised and why, and run `bin/site-mcp connect <site>` for the exact client commands to paste.
 
 ## Reference: minimal site module
