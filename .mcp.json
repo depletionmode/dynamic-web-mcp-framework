@@ -1,21 +1,17 @@
 {
   "mcpServers": {
     "wikipedia-mcp": {
-      "command": "bin/site-mcp",
-      "args": [
-        "wikipedia"
-      ],
-      "env": {
-        "TYPESAFE_API_KEY": "${TYPESAFE_API_KEY}"
+      "type": "http",
+      "url": "http://127.0.0.1:8767/mcp",
+      "headers": {
+        "Authorization": "Bearer ${WIKIPEDIA_MCP_TOKEN}"
       }
     },
     "outlook-mcp": {
-      "command": "bin/site-mcp",
-      "args": [
-        "outlook"
-      ],
-      "env": {
-        "TYPESAFE_API_KEY": "${TYPESAFE_API_KEY}"
+      "type": "http",
+      "url": "http://127.0.0.1:8765/mcp",
+      "headers": {
+        "Authorization": "Bearer ${OUTLOOK_MCP_TOKEN}"
       }
     }
   }

@@ -4,16 +4,24 @@ import asyncio
 import base64
 import json
 import os
+import secrets
 import sys
 import uuid
+from contextlib import asynccontextmanager
 from pathlib import Path
 
+import uvicorn
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
+from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
+from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import TextContent, Tool, ToolAnnotations
 from pydantic import Field
+from starlette.applications import Starlette
+from starlette.responses import JSONResponse, Response
+from starlette.routing import Route
 
-from .auth import LoginView
+from .auth import login_routes
 from .policy import JevPolicy
 from .runner import Runner
 from .spec import Arguments, Task, contained_file
@@ -194,20 +202,87 @@ def create_server(browser, policy=None, login_url=None):
     return server, runner
 
 
-async def serve(browser, host=None, port=None):
-    """MCP over stdio, with the human login view on host:port when a host is given."""
-    view = LoginView(browser, host, port) if host else None
-    server, runner = create_server(browser, login_url=view.url if view else None)
+def web_app(browser, token, mcp_server=None):
+    """Login view, /health, and (for HTTP transport) the bearer-protected MCP endpoint at /mcp."""
+    routes = login_routes(browser, token)
+    routes.append(Route("/health", lambda request: JSONResponse({"site": browser.site.name})))
+    lifespan = None
+    if mcp_server is not None:
+        manager = StreamableHTTPSessionManager(
+            app=mcp_server,
+            stateless=True,
+            json_response=True,
+            security_settings=TransportSecuritySettings(
+                enable_dns_rebinding_protection=True,
+                allowed_hosts=["127.0.0.1", "127.0.0.1:*", "localhost", "localhost:*"],
+                allowed_origins=["http://127.0.0.1:*", "http://localhost:*"],
+            ),
+        )
+        expected = f"Bearer {token}".encode()
+
+        class McpEndpoint:
+            """Raw ASGI app on an exact path; a Mount would 307-redirect /mcp to /mcp/."""
+
+            async def __call__(self, scope, receive, send):
+                headers = dict(scope.get("headers") or [])
+                if not secrets.compare_digest(headers.get(b"authorization", b""), expected):
+                    await Response(status_code=401)(scope, receive, send)
+                    return
+                await manager.handle_request(scope, receive, send)
+
+        routes.append(Route("/mcp", McpEndpoint(), methods=["GET", "POST", "DELETE"]))
+
+        @asynccontextmanager
+        async def lifespan(app):
+            async with manager.run():
+                yield
+
+    return Starlette(routes=routes, lifespan=lifespan)
+
+
+async def serve(browser, host, port, transport="stdio"):
+    """MCP over stdio (with the login view beside it) or over HTTP on host:port.
+
+    One token protects both the login view and the MCP endpoint. Set WEBSITE_MCP_TOKEN for a
+    stable token that clients can be configured with; otherwise one is generated per run.
+    """
+    token = os.getenv("WEBSITE_MCP_TOKEN") or secrets.token_urlsafe(32)
+    login_url = f"http://127.0.0.1:{port}/#{token}" if host else None
+    server, runner = create_server(browser, login_url=login_url)
     view_task = None
-    if view:
-        print(f"Login view: {view.url}", file=sys.stderr)
-        view_task = asyncio.create_task(view.serve_in_background())
     try:
-        async with stdio_server() as (read, write):
-            await server.run(read, write, server.create_initialization_options())
+        if transport == "http":
+            print(
+                f"MCP endpoint: http://127.0.0.1:{port}/mcp\nLogin view: {login_url}",
+                file=sys.stderr,
+            )
+            await _uvicorn(web_app(browser, token, server), host, port).serve()
+        else:
+            if host:
+                print(f"Login view: {login_url}", file=sys.stderr)
+                view = _uvicorn(web_app(browser, token), host, port)
+                view_task = asyncio.create_task(_serve_quietly(view))
+            async with stdio_server() as (read, write):
+                await server.run(read, write, server.create_initialization_options())
     finally:
         if view_task:
-            view.stop()
+            view.should_exit = True
             await view_task
         await runner.policy.close()
         await browser.close()
+
+
+def _uvicorn(app, host, port):
+    return uvicorn.Server(
+        uvicorn.Config(app, host=host, port=port, log_level="warning", access_log=False)
+    )
+
+
+async def _serve_quietly(view):
+    """A login-view bind failure must not kill the stdio server; uvicorn raises SystemExit on it."""
+    try:
+        await view.serve()
+    except asyncio.CancelledError:
+        raise
+    except BaseException as exc:
+        print(f"Login view unavailable: {exc}", file=sys.stderr)

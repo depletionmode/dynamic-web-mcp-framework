@@ -21,7 +21,13 @@ def main():
     parser.add_argument(
         "--host", default="127.0.0.1", help="Login view bind address; '' disables it for serve"
     )
-    parser.add_argument("--port", type=int, default=8765, help="Login view port")
+    parser.add_argument("--port", type=int, default=8765, help="Login view / MCP endpoint port")
+    parser.add_argument(
+        "--transport",
+        choices=["stdio", "http"],
+        default="stdio",
+        help="stdio for one spawning client; http serves /mcp for any number of clients",
+    )
     args = parser.parse_args()
     os.umask(0o077)
     site = load_site(args.site)
@@ -31,7 +37,7 @@ def main():
         return
     browser = Browser(site, args.state_dir, args.account)
     try:
-        asyncio.run(serve(browser, args.host, args.port))
+        asyncio.run(serve(browser, args.host, args.port, args.transport))
     except KeyboardInterrupt:
         pass
 

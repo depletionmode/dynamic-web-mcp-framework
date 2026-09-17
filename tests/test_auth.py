@@ -2,12 +2,12 @@ from unittest.mock import AsyncMock
 
 from starlette.testclient import TestClient
 
-from website_mcp.auth import auth_app
+from website_mcp.server import web_app
 
 
 def test_login_requires_token():
     browser = AsyncMock()
-    with TestClient(auth_app(browser, "secret-token")) as client:
+    with TestClient(web_app(browser, "secret-token")) as client:
         assert client.get("/").status_code == 200
         assert client.get("/screen").status_code == 401
         assert client.post("/action", json={"op": "text", "text": "password"}).status_code == 401
@@ -25,7 +25,7 @@ async def test_headless_login_view_controls_real_browser(website, tmp_path):
     await browser.start()
     try:
         async with AsyncClient(
-            transport=ASGITransport(app=auth_app(browser, "test-token")),
+            transport=ASGITransport(app=web_app(browser, "test-token")),
             base_url="http://localhost",
             headers={"Authorization": "Bearer test-token"},
         ) as client:

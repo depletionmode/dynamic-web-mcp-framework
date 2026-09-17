@@ -4,11 +4,10 @@ Drives Outlook.com webmail through the framework: folders, filtered and time-bou
 
 ```sh
 export TYPESAFE_API_KEY='your-key'
-docker compose -f servers/outlook/compose.yaml build
-claude mcp add outlook-mcp -e TYPESAFE_API_KEY="$TYPESAFE_API_KEY" -- "$PWD/bin/site-mcp" outlook
+bin/site-mcp up outlook     # prints the claude / codex / grok add lines for http://127.0.0.1:8765/mcp
 ```
 
-The first tool call returns `login.required: true` with a URL on `127.0.0.1:8765`. Sign in there, including MFA, then retry. The session persists in the `outlook-mcp-data` volume. See [verification.md](verification.md) for what has actually been exercised against a real mailbox.
+The first tool call returns `login.required: true` with a URL on `127.0.0.1:8765`. Sign in there, including MFA, then retry. The session persists in the `outlook-mcp-data` volume, and every agent connected to the server shares it. See [verification.md](verification.md) for what has actually been exercised against a real mailbox.
 
 ## Tool examples
 

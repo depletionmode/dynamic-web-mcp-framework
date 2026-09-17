@@ -2,13 +2,9 @@
 
 from __future__ import annotations
 
-import asyncio
 import secrets
-import sys
 from pathlib import Path
 
-import uvicorn
-from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse, Response
 from starlette.routing import Route
@@ -16,7 +12,9 @@ from starlette.routing import Route
 HTML = Path(__file__).with_name("auth.html").read_text()
 
 
-def auth_app(browser, token):
+def login_routes(browser, token):
+    """Routes for the login view. The token travels in the URL fragment, then as a bearer header."""
+
     def authorized(request):
         return secrets.compare_digest(request.headers.get("authorization", ""), f"Bearer {token}")
 
@@ -75,39 +73,8 @@ def auth_app(browser, token):
                 return JSONResponse({"error": "unknown operation"}, status_code=400)
         return JSONResponse({"ok": True})
 
-    return Starlette(
-        routes=[
-            Route("/", index),
-            Route("/screen", screenshot),
-            Route("/action", action, methods=["POST"]),
-        ]
-    )
-
-
-class LoginView:
-    """Token-protected human login page running beside the MCP server."""
-
-    def __init__(self, browser, host, port):
-        self.token = secrets.token_urlsafe(32)
-        self.url = f"http://127.0.0.1:{port}/#{self.token}"
-        self.server = uvicorn.Server(
-            uvicorn.Config(
-                auth_app(browser, self.token),
-                host=host,
-                port=port,
-                log_level="warning",
-                access_log=False,
-            )
-        )
-
-    async def serve_in_background(self):
-        """Never lets a bind failure kill the MCP server; uvicorn raises SystemExit on it."""
-        try:
-            await self.server.serve()
-        except asyncio.CancelledError:
-            raise
-        except BaseException as exc:
-            print(f"Login view unavailable: {exc}", file=sys.stderr)
-
-    def stop(self):
-        self.server.should_exit = True
+    return [
+        Route("/", index),
+        Route("/screen", screenshot),
+        Route("/action", action, methods=["POST"]),
+    ]

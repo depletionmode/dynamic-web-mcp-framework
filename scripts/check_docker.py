@@ -1,50 +1,37 @@
-"""Read-only container smoke: real MCP handshake and the real public login page.
+"""Container smoke, no model calls: start the site's container, handshake over HTTP, list its
+tools, and read the public landing page.
 
 Usage: uv run python scripts/check_docker.py servers/<site> [servers/<site> ...]
+The containers keep running afterwards; stop with bin/site-mcp down <site>.
 """
 
 import asyncio
 import json
-import os
 import sys
 from pathlib import Path
 
-from mcp import ClientSession, StdioServerParameters
-from mcp.client.stdio import stdio_client
+from _client import session
 
 
 async def check(target):
-    directory = Path(target).resolve()
-    site, service = directory.name, f"{directory.name}-mcp"
-    params = StdioServerParameters(
-        command="docker",
-        args=["compose", "-f", str(directory / "compose.yaml"), "run", "--rm", "--no-deps"]
-        + ["--name", f"{service}-smoke", "-T", service, "serve", "--site", "/site/site.py"]
-        + ["--account", "container-smoke"],
-        env=dict(os.environ) | {"WEBSITE_MCP_DEBUG_TOOLS": "1"},
-    )
-    async with stdio_client(params) as (read, write):
-        async with ClientSession(read, write) as session:
-            await session.initialize()
-            catalog = await session.list_tools()
-            result = await session.call_tool("browser_status", {})
-            assert not result.isError, result
-            page = json.loads(result.content[0].text)
-            # A public app/login page must actually be readable.
-            assert page["frames"], page
-            assert page["controls"], page
-            print(
-                json.dumps(
-                    {
-                        "site": site,
-                        "tools": len(catalog.tools),
-                        "url": page["url"].split("?")[0],
-                        "controls": len(page["controls"]),
-                        "blocked_navigation": page["blocked_navigation"],
-                        "login": page["login"],
-                    }
-                )
+    async with session(target) as client:
+        catalog = await client.list_tools()
+        result = await client.call_tool("browser_status", {})
+        assert not result.isError, result
+        page = json.loads(result.content[0].text)
+        assert page["frames"] and page["controls"], page  # the public page must be readable
+        print(
+            json.dumps(
+                {
+                    "site": Path(target).resolve().name,
+                    "tools": sorted(t.name for t in catalog.tools if t.name != "browser_status"),
+                    "url": page["url"].split("?")[0],
+                    "controls": len(page["controls"]),
+                    "blocked_navigation": page["blocked_navigation"],
+                    "login": page["login"],
+                }
             )
+        )
 
 
 async def main():

@@ -1,5 +1,5 @@
-# Outlook.com MCP server: one container, named outlook-mcp, built on the generic framework image.
-# Run from anywhere:  docker compose -f servers/outlook/compose.yaml run --rm --service-ports --name outlook-mcp -T outlook-mcp
+# outlook MCP server: one long-running container named outlook-mcp, built on the generic framework image.
+# Start with `bin/site-mcp up outlook`; it writes ./.env (token, key) and prints the client config.
 name: outlook-mcp
 services:
   outlook-mcp:
@@ -8,17 +8,18 @@ services:
       args:
         SITE_DIR: servers/outlook
     image: outlook-mcp:local
+    container_name: outlook-mcp
     init: true
-    stdin_open: true
-    # MCP over stdio; the human login view is published on the host loopback.
-    command: [serve, --site, /site/site.py, --host, "0.0.0.0", --port, "8765"]
+    restart: unless-stopped
+    # MCP over HTTP at /mcp and the human login view at /, both on the host loopback.
+    command: [serve, --site, /site/site.py, --transport, http, --host, "0.0.0.0", --port, "8765"]
     ports:
       - "127.0.0.1:8765:8765"
     environment:
-      # From the environment that runs `docker compose`, the MCP client's env block, or ./.env.
+      # All from ./.env next to this file (written by bin/site-mcp up) or the caller's environment.
       TYPESAFE_API_KEY: ${TYPESAFE_API_KEY:?export TYPESAFE_API_KEY or put it in .env next to compose.yaml}
       TYPESAFE_DEFAULT_MODEL: ${TYPESAFE_DEFAULT_MODEL:-jev-latest}
-      # Set to 1 to expose the browser_status debug tool; the helper scripts do this.
+      WEBSITE_MCP_TOKEN: ${WEBSITE_MCP_TOKEN:?run bin/site-mcp up outlook}
       WEBSITE_MCP_DEBUG_TOOLS: ${WEBSITE_MCP_DEBUG_TOOLS:-}
     volumes:
       - data:/data

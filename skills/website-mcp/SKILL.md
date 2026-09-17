@@ -11,7 +11,7 @@ You turn "Make an MCP of website X" into a container the user can plug into any 
 
 - Framework repo: `~/dynamic-web-mcp-framework`. Read `AGENTS.md`, `README.md`, `docs/BUILDING_SERVERS.md`, `src/website_mcp/spec.py`, `servers/wikipedia/site.py` (minimal, no login) and `servers/outlook/site.py` (full, with login) before writing anything.
 - Layout is fixed: everything for a site lives in `servers/<site>/`: `site.py` exporting `SITE`, `compose.yaml`, `README.md`, `verification.md`, `tests/`. The framework package never contains site code.
-- Naming convention, unless the user asks for something else: the directory is `<site>`, and the Compose service, the container (`--name` on `compose run`, since Compose ignores `container_name` for one-off runs), the image (`<site>-mcp:local`), the volume (`<site>-mcp-data`) and the MCP client entry are all `<site>-mcp`. One container per site; there is never a separate login container.
+- Naming convention, unless the user asks for something else: the directory is `<site>`, and the Compose service, `container_name`, the image (`<site>-mcp:local`), the volume (`<site>-mcp-data`) and the MCP client entry are all `<site>-mcp`. One long-running container per site serving MCP over HTTP on its own loopback port; any number of agents connect to it; there is never a separate login container.
 - Jev chooses among observed controls and caller-supplied strings. It cannot invent text. Every string a tool needs typed must arrive as a tool argument or be computed in Python.
 - Never accept credentials, CSS selectors, JavaScript or filesystem paths as tool arguments. Sign-in happens through the login view, by a human.
 - Never send, submit, issue, pay, delete permanently or otherwise cause an externally visible mutation on the real site unless the user explicitly asks for that specific test. Read-only first.
@@ -30,7 +30,7 @@ If the user gave the workflows already, skip the question and confirm your tool 
 
 ## Phase 1: recon the real site
 
-Use the framework's own browser, never your desktop browser, so you see what Jev will see. Start the site directory with a tool-less `site.py` and look at the public landing page. The helper scripts enable the `browser_status` debug tool, which returns the page without a model call.
+Use the framework's own browser, never your desktop browser, so you see what Jev will see. Start the site directory with a tool-less `site.py` plus a `compose.yaml` copied from `servers/wikipedia` (see Phase 3 for what to change), then look at the public landing page. The helper scripts start the container with the `browser_status` debug tool, which returns the page without a model call.
 
 ```sh
 cd ~/dynamic-web-mcp-framework && uv sync --frozen
@@ -39,7 +39,7 @@ cat > servers/<site>/site.py <<'PY'
 from website_mcp.spec import Site
 SITE = Site(name="<site>", start_url="https://app.example.com/", domains=("example.com",), tools=())
 PY
-uv run python scripts/mcp_call.py servers/<site> browser_status --local
+uv run python scripts/mcp_call.py servers/<site> browser_status    # runs bin/site-mcp up <site> --debug for you
 ```
 
 Record, in `servers/<site>/README.md` as you go:
@@ -79,29 +79,29 @@ Show the user the catalog as a table (tool, arguments, read-only, verifier yes o
 ## Phase 3: implement
 
 1. Fill in `servers/<site>/site.py`: `name`, `start_url`, `domains`, `login_domains`, `guidance`, argument models, task factories, verifiers. Guidance is where site quirks live: "Save autosaves after 2 seconds", "the list is virtualized, capture before scrolling", "opening a record marks it read". Computed strings (search syntax, formatted dates, totals the UI expects typed) live in methods on the argument model, as `MailQuery.search()` does for Outlook.
-2. Copy `servers/wikipedia/compose.yaml` to `servers/<site>/compose.yaml`. Change `name`, the service key, `SITE_DIR`, the image, the volume name, and the port: Outlook uses 8765, Wikipedia 8767; take the next free one and set it both in `--port` and in `ports`. The generic `Dockerfile` copies the site directory to `/site`.
-3. Add the site to `.mcp.json` at the repo root, copying an existing entry. Clients launch `bin/site-mcp <site>`, which starts the container and replaces a stale one.
+2. Copy `servers/wikipedia/compose.yaml` to `servers/<site>/compose.yaml`. Change `name`, the service key, `container_name`, `SITE_DIR`, the image, the volume name, and the port: Outlook uses 8765, Wikipedia 8767; take the next free one and set it both in `--port` and in `ports`. The generic `Dockerfile` copies the site directory to `/site`. `bin/site-mcp up <site>` writes `servers/<site>/.env` with the API key and a bearer token; never commit it.
+3. Add the site to `.mcp.json` at the repo root, copying an existing entry: HTTP URL on its port, bearer token from `<SITE>_MCP_TOKEN`.
 4. Tests in `servers/<site>/tests/`, all offline and free: argument validation including computed strings; `login_domains` against real sign-in URLs from your recon; the stdio handshake listing your tools (copy `servers/outlook/tests/test_outlook.py`); a verifier test against a fixture page if a verifier has logic beyond a locator read.
 5. Run the gates. All must pass before anything live:
 
 ```sh
 uv run ruff check . && uv run ruff format --check . && uv run pytest -q
-docker compose -f servers/<site>/compose.yaml build && uv run python scripts/check_docker.py servers/<site>
+uv run python scripts/check_docker.py servers/<site>
 ```
 
-The Docker check proves the container starts, lists your tools, reaches the public site, and reports `login.required` correctly.
+The Docker check builds and starts the container, handshakes over HTTP, lists your tools, reaches the public site, and reports `login.required` correctly.
 
 ## Phase 4: get the user signed in
 
-The MCP container hosts its own login view; there is no separate login step. Open a persistent client session, which starts the container and writes the login URL to a status file, then hand the URL to the user and wait. Do not ask for credentials; do not type them.
+The MCP container hosts its own login view; there is no separate login step. Open a persistent client session, which starts the container if needed and writes the login URL to a status file, then hand the URL to the user and wait. Do not ask for credentials; do not type them.
 
 ```sh
-export TYPESAFE_API_KEY=...   # or put it in .env next to the compose file
+export TYPESAFE_API_KEY=...   # saved to servers/<site>/.env on first up
 uv run python scripts/mcp_session.py servers/<site> /tmp/<site>-session &
 sleep 20; cat /tmp/<site>-session/status.json     # login URL and login.required
 ```
 
-Tell the user: open the `http://127.0.0.1:<port>/#<token>` URL, sign in including MFA, and say when the app's main screen is showing. The session lives in the `<site>-mcp-data` volume, so every later container starts signed in. Keep this session open for Phase 5; it is the same container.
+Tell the user: open the `http://127.0.0.1:<port>/#<token>` URL, sign in including MFA, and say when the app's main screen is showing. The session lives in the `<site>-mcp-data` volume, so the container starts signed in after any restart. Keep this session open for Phase 5; it talks to the same container the user's agents will.
 
 If a tool ever returns `"login": {"required": true, "url": ...}` later, the session expired. Give the user that URL; the MCP client can stay connected.
 
@@ -114,7 +114,7 @@ echo '{"tool": "<site>_list_things", "arguments": {"limit": 10}}' >> /tmp/<site>
 sleep 60; cat /tmp/<site>-session/results/1.json
 ```
 
-`scripts/mcp_call.py servers/<site> <tool> '<json>'` does a single call in a fresh container when you do not need the session.
+`scripts/mcp_call.py servers/<site> <tool> '<json>'` does a single call against the running container when you do not need the session.
 
 Order of work:
 
@@ -134,9 +134,9 @@ Common failures and the fix that worked:
 ## Phase 6: hand over
 
 1. `servers/<site>/verification.md`: the date, the exact commands run, and a table of each tool with the evidence seen (or "not yet verified"). Do not round up.
-2. `servers/<site>/README.md`: what the server does, the `claude mcp add <site>-mcp -e TYPESAFE_API_KEY=... -- <repo>/bin/site-mcp <site>` line, one example call per tool family, known limitations.
-3. Commit. The container is ready when the gates in Phase 3 pass and the verification table shows real evidence for the tools the user asked for.
-4. Tell the user what works, what was not exercised and why, and the exact MCP client config to paste.
+2. `servers/<site>/README.md`: what the server does, the `bin/site-mcp up <site>` line (it prints the client add commands), one example call per tool family, known limitations.
+3. Commit (never `servers/<site>/.env`). The container is ready when the gates in Phase 3 pass and the verification table shows real evidence for the tools the user asked for.
+4. Tell the user what works, what was not exercised and why, and run `bin/site-mcp connect <site>` for the exact client commands to paste.
 
 ## Reference: minimal site module
 
