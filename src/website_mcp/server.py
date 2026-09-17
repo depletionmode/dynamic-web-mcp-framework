@@ -202,9 +202,13 @@ def create_server(browser, policy=None, login_url=None):
     return server, runner
 
 
-def web_app(browser, token, mcp_server=None):
-    """Login view, /health, and (for HTTP transport) the bearer-protected MCP endpoint at /mcp."""
-    routes = login_routes(browser, token)
+def web_app(browser, login_token, mcp_server=None, mcp_token=None):
+    """Login view, /health, and (for HTTP transport) the MCP endpoint at /mcp.
+
+    The login view always needs its per-run token, which travels in the login URL. The MCP
+    endpoint is open on the loopback unless WEBSITE_MCP_TOKEN sets a bearer token.
+    """
+    routes = login_routes(browser, login_token)
     routes.append(Route("/health", lambda request: JSONResponse({"site": browser.site.name})))
     lifespan = None
     if mcp_server is not None:
@@ -218,14 +222,16 @@ def web_app(browser, token, mcp_server=None):
                 allowed_origins=["http://127.0.0.1:*", "http://localhost:*"],
             ),
         )
-        expected = f"Bearer {token}".encode()
+        expected = f"Bearer {mcp_token}".encode() if mcp_token else None
 
         class McpEndpoint:
             """Raw ASGI app on an exact path; a Mount would 307-redirect /mcp to /mcp/."""
 
             async def __call__(self, scope, receive, send):
                 headers = dict(scope.get("headers") or [])
-                if not secrets.compare_digest(headers.get(b"authorization", b""), expected):
+                if expected and not secrets.compare_digest(
+                    headers.get(b"authorization", b""), expected
+                ):
                     await Response(status_code=401)(scope, receive, send)
                     return
                 await manager.handle_request(scope, receive, send)
@@ -243,20 +249,20 @@ def web_app(browser, token, mcp_server=None):
 async def serve(browser, host, port, transport="stdio"):
     """MCP over stdio (with the login view beside it) or over HTTP on host:port.
 
-    One token protects both the login view and the MCP endpoint. Set WEBSITE_MCP_TOKEN for a
-    stable token that clients can be configured with; otherwise one is generated per run.
+    The login view gets a fresh token per run, carried in the login URL. The HTTP MCP endpoint
+    is open on the loopback unless WEBSITE_MCP_TOKEN is set.
     """
-    token = os.getenv("WEBSITE_MCP_TOKEN") or secrets.token_urlsafe(32)
+    token = secrets.token_urlsafe(32)
+    mcp_token = os.getenv("WEBSITE_MCP_TOKEN") or None
     login_url = f"http://127.0.0.1:{port}/#{token}" if host else None
     server, runner = create_server(browser, login_url=login_url)
     view_task = None
     try:
         if transport == "http":
-            print(
-                f"MCP endpoint: http://127.0.0.1:{port}/mcp\nLogin view: {login_url}",
-                file=sys.stderr,
-            )
-            await _uvicorn(web_app(browser, token, server), host, port).serve()
+            auth = "bearer token" if mcp_token else "no auth, loopback only"
+            print(f"MCP endpoint: http://127.0.0.1:{port}/mcp ({auth})", file=sys.stderr)
+            print(f"Login view: {login_url}", file=sys.stderr)
+            await _uvicorn(web_app(browser, token, server, mcp_token), host, port).serve()
         else:
             if host:
                 print(f"Login view: {login_url}", file=sys.stderr)

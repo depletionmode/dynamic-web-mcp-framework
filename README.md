@@ -17,7 +17,7 @@ export TYPESAFE_API_KEY='your-key'
 bin/site-mcp up wikipedia
 ```
 
-`up` builds the image if needed, starts the container detached, saves the key and a generated bearer token to `servers/wikipedia/.env`, and prints the exact `claude mcp add`, `codex mcp add` and `grok mcp add` lines for `http://127.0.0.1:8767/mcp`. `bin/site-mcp connect|status|down <site>` do what they say. `.mcp.json` declares both servers for Claude Code. When a tool result says `login.required`, open the URL it carries, sign in, and call again; the session persists in the site's volume across restarts.
+`up` builds the image if needed, starts the container detached, saves the key to `servers/wikipedia/.env`, and prints the exact `grok mcp add`, `claude mcp add` and `codex mcp add` lines for `http://127.0.0.1:8767/mcp`. The endpoint is open on the loopback by default; `up <site> --token` requires a bearer token instead. `bin/site-mcp connect|status|down <site>` do what they say. `.mcp.json` declares both servers for Claude Code. When a tool result says `login.required`, open the URL it carries, sign in, and call again; the session persists in the site's volume across restarts.
 
 Results are evidence, not claims: observed text, captured pages, downloaded files and the action history, with a status of `model_complete`, `verified`, or a named reason it stopped. Runs are bounded by steps, a 120 second timeout, and guardrails against no progress, loops and persistently low confidence. Each server's `README.md` and `verification.md` say what it does and what has actually been exercised on the real site.
 
@@ -30,7 +30,7 @@ uv run python scripts/check_docker.py servers/wikipedia                     # st
 uv run python scripts/mcp_call.py servers/wikipedia wiki_search '{"query": "Ada Lovelace"}'   # one paid Jev run
 ```
 
-[docs/architecture.md](docs/architecture.md) explains the moving parts; [docs/BUILDING_SERVERS.md](docs/BUILDING_SERVERS.md) is the human-readable version of the skill. The container runs as a non-root user with capabilities dropped and listens only on the host loopback; one bearer token protects both the MCP endpoint and the login view. `serve --transport stdio` still exists for a single spawning client. The model sees page text, so treat the TypeSafe service as a processor of whatever the site shows.
+[docs/architecture.md](docs/architecture.md) explains the moving parts; [docs/BUILDING_SERVERS.md](docs/BUILDING_SERVERS.md) is the human-readable version of the skill. The container runs as a non-root user with capabilities dropped and listens only on the host loopback. The login view always needs the per-run token in its URL; the MCP endpoint is open unless started with `--token`. `serve --transport stdio` still exists for a single spawning client. The model sees page text, so treat the TypeSafe service as a processor of whatever the site shows.
 
 ## Inspiration and credits
 

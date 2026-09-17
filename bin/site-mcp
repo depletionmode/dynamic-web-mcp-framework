@@ -1,49 +1,69 @@
 #!/usr/bin/env sh
 # Operate a site's MCP container (servers/<site>, container <site>-mcp, MCP over HTTP).
-#   bin/site-mcp up <site> [--debug]   build if needed, start detached, print client config
-#   bin/site-mcp connect <site>        print the client config again
-#   bin/site-mcp status <site>         container state and health
-#   bin/site-mcp down <site>           stop and remove the container (the login session stays in its volume)
-# --debug additionally exposes the browser_status tool, used by the live-test helper scripts.
+#   bin/site-mcp up <site> [--token] [--debug]   build if needed, start detached, print client config
+#   bin/site-mcp connect <site>                  print the client config again
+#   bin/site-mcp status <site>                   container state and health
+#   bin/site-mcp down <site>                     stop and remove the container (login session stays in its volume)
+# --token   require a bearer token on /mcp (generated once into servers/<site>/.env). Default: open on the loopback.
+# --debug   also expose the browser_status tool, used by the live-test helper scripts.
 set -eu
 root=$(cd "$(dirname "$0")/.." && pwd)
 cmd=${1:-}; site=${2:-}
-[ -n "$cmd" ] && [ -n "$site" ] || { sed -n '2,7p' "$0" >&2; exit 2; }
+usage() { sed -n '2,8p' "$0" >&2; exit 2; }
+[ -n "$cmd" ] && [ -n "$site" ] || usage
 dir="$root/servers/$site"; compose="$dir/compose.yaml"; env="$dir/.env"
 [ -f "$compose" ] || { echo "no servers/$site/compose.yaml" >&2; exit 2; }
 port=$(grep -oE '127\.0\.0\.1:[0-9]+' "$compose" | head -1 | cut -d: -f2)
+url="http://127.0.0.1:$port/mcp"
+shift 2
+token_flag=""; debug_flag=""
+for flag in "$@"; do
+  case "$flag" in --token) token_flag=1 ;; --debug) debug_flag=1 ;; *) usage ;; esac
+done
 
 read_env() { grep -E "^$1=" "$env" 2>/dev/null | head -1 | cut -d= -f2-; }
 set_env() { touch "$env"; chmod 600 "$env"; grep -vE "^$1=" "$env" > "$env.tmp" || true; printf '%s=%s\n' "$1" "$2" >> "$env.tmp"; mv "$env.tmp" "$env"; }
 
 connect() {
   token=$(read_env WEBSITE_MCP_TOKEN)
-  envname="$(printf '%s' "$site" | tr 'a-z-' 'A-Z_')_MCP_TOKEN"
-  cat <<MSG
-$site-mcp is at http://127.0.0.1:$port/mcp (bearer token in servers/$site/.env)
-
-  claude mcp add --transport http $site-mcp http://127.0.0.1:$port/mcp --header "Authorization: Bearer $token"
-  codex  mcp add $site-mcp --url http://127.0.0.1:$port/mcp --bearer-token-env-var $envname   # export $envname=$token
-  grok   mcp add $site-mcp http://127.0.0.1:$port/mcp -H "Authorization: Bearer $token"
-
-When a tool result says login is required, open the URL it carries and sign in there.
-MSG
+  if [ -n "$token" ]; then
+    envname="$(printf '%s' "$site" | tr 'a-z-' 'A-Z_')_MCP_TOKEN"
+    echo "$site-mcp is at $url (bearer token in servers/$site/.env)"
+    echo
+    echo "  grok   mcp add $site-mcp $url -H \"Authorization: Bearer $token\""
+    echo "  claude mcp add --transport http $site-mcp $url --header \"Authorization: Bearer $token\""
+    echo "  codex  mcp add $site-mcp --url $url --bearer-token-env-var $envname   # export $envname=$token"
+  else
+    echo "$site-mcp is at $url (open on the loopback; 'up $site --token' requires a bearer token)"
+    echo
+    echo "  grok   mcp add $site-mcp $url"
+    echo "  claude mcp add --transport http $site-mcp $url"
+    echo "  codex  mcp add $site-mcp --url $url"
+  fi
+  echo
+  echo "When a tool result says login is required, open the URL it carries and sign in there."
 }
 
 case "$cmd" in
   up)
-    [ -n "$(read_env WEBSITE_MCP_TOKEN)" ] || set_env WEBSITE_MCP_TOKEN "$(head -c 32 /dev/urandom | base64 | tr '+/' '-_' | tr -d '=\n')"
     if [ -z "$(read_env TYPESAFE_API_KEY)" ]; then
       [ -n "${TYPESAFE_API_KEY:-}" ] || { echo "export TYPESAFE_API_KEY first; it is saved to servers/$site/.env" >&2; exit 1; }
       set_env TYPESAFE_API_KEY "$TYPESAFE_API_KEY"
     fi
-    if [ "${3:-}" = "--debug" ]; then set_env WEBSITE_MCP_DEBUG_TOOLS 1; else set_env WEBSITE_MCP_DEBUG_TOOLS ""; fi
-    docker compose -f "$compose" up -d --build --quiet-pull >/dev/null 2>&1 || docker compose -f "$compose" up -d --build
+    if [ -n "$token_flag" ]; then
+      [ -n "$(read_env WEBSITE_MCP_TOKEN)" ] || set_env WEBSITE_MCP_TOKEN "$(head -c 32 /dev/urandom | base64 | tr '+/' '-_' | tr -d '=\n')"
+    else
+      set_env WEBSITE_MCP_TOKEN ""
+    fi
+    set_env WEBSITE_MCP_DEBUG_TOOLS "$debug_flag"
+    docker compose -f "$compose" up -d --build >/dev/null 2>&1 || docker compose -f "$compose" up -d --build
     for _ in $(seq 1 60); do curl -fs "http://127.0.0.1:$port/health" >/dev/null 2>&1 && break; sleep 1; done
     curl -fs "http://127.0.0.1:$port/health" >/dev/null || { echo "$site-mcp did not become healthy; see: docker logs $site-mcp" >&2; exit 1; }
     connect ;;
   connect) connect ;;
-  status) docker ps -a --filter "name=$site-mcp" --format '{{.Names}} {{.Status}} {{.Ports}}' | grep -E "^$site-mcp " || echo "$site-mcp: no container"; curl -fs "http://127.0.0.1:$port/health" >/dev/null && echo "healthy at http://127.0.0.1:$port/mcp" || echo "not healthy" ;;
+  status)
+    docker ps -a --filter "name=$site-mcp" --format '{{.Names}} {{.Status}} {{.Ports}}' | grep -E "^$site-mcp " || echo "$site-mcp: no container"
+    curl -fs "http://127.0.0.1:$port/health" >/dev/null && echo "healthy at $url" || echo "not healthy" ;;
   down) docker compose -f "$compose" down ;;
-  *) sed -n '2,7p' "$0" >&2; exit 2 ;;
+  *) usage ;;
 esac

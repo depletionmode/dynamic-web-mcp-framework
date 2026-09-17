@@ -21,7 +21,8 @@ def endpoint(target, debug=True):
         line.split("=", 1) for line in (directory / ".env").read_text().splitlines() if "=" in line
     )
     port = re.search(r"127\.0\.0\.1:(\d+)", (directory / "compose.yaml").read_text()).group(1)
-    return f"http://127.0.0.1:{port}/mcp", {"Authorization": f"Bearer {env['WEBSITE_MCP_TOKEN']}"}
+    token = env.get("WEBSITE_MCP_TOKEN", "")
+    return f"http://127.0.0.1:{port}/mcp", ({"Authorization": f"Bearer {token}"} if token else {})
 
 
 @asynccontextmanager

@@ -2,17 +2,11 @@
   "mcpServers": {
     "wikipedia-mcp": {
       "type": "http",
-      "url": "http://127.0.0.1:8767/mcp",
-      "headers": {
-        "Authorization": "Bearer ${WIKIPEDIA_MCP_TOKEN}"
-      }
+      "url": "http://127.0.0.1:8767/mcp"
     },
     "outlook-mcp": {
       "type": "http",
-      "url": "http://127.0.0.1:8765/mcp",
-      "headers": {
-        "Authorization": "Bearer ${OUTLOOK_MCP_TOKEN}"
-      }
+      "url": "http://127.0.0.1:8765/mcp"
     }
   }
 }

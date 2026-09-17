@@ -19,7 +19,8 @@ services:
       # All from ./.env next to this file (written by bin/site-mcp up) or the caller's environment.
       TYPESAFE_API_KEY: ${TYPESAFE_API_KEY:?export TYPESAFE_API_KEY or put it in .env next to compose.yaml}
       TYPESAFE_DEFAULT_MODEL: ${TYPESAFE_DEFAULT_MODEL:-jev-latest}
-      WEBSITE_MCP_TOKEN: ${WEBSITE_MCP_TOKEN:?run bin/site-mcp up wikipedia}
+      # Optional bearer token for /mcp; empty means open on the loopback. `bin/site-mcp up <site> --token` sets one.
+      WEBSITE_MCP_TOKEN: ${WEBSITE_MCP_TOKEN:-}
       WEBSITE_MCP_DEBUG_TOOLS: ${WEBSITE_MCP_DEBUG_TOOLS:-}
     volumes:
       - data:/data
