@@ -170,6 +170,14 @@ class Browser:
             "text_truncated": len(text) > limit,
         }
 
+    async def visit(self, url: str):
+        """Navigate to a site-computed URL after enforcing the site's domain boundary."""
+        if not self.site.permits(url):
+            raise ValueError("Task start URL is outside this site's permitted domains")
+        await self.page.goto(url, wait_until="domcontentloaded")
+        await self.page.locator("body").wait_for(state="attached", timeout=20000)
+        await asyncio.sleep(0.15)
+
     async def observe(self):
         for handle in self.handles:
             try:

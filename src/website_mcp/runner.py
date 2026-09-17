@@ -36,6 +36,8 @@ class Runner:
     async def run(self, task: Task):
         async with self.browser.lock:
             await self.browser.start()
+            if task.start_url:
+                await self.browser.visit(task.start_url)
             run_id = uuid4().hex
             history, captures = [], []
             first_download = len(self.browser.downloads)

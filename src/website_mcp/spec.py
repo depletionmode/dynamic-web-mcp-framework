@@ -18,6 +18,9 @@ class Task:
     goal: str
     values: dict[str, str] = field(default_factory=dict)
     uploads: dict[str, str] = field(default_factory=dict)
+    # A site may compute a trusted, in-domain page for a task (for example, a record URL
+    # from a validated numeric ID). It must never be a caller-supplied arbitrary URL.
+    start_url: str | None = None
     max_steps: int = 60
     # A site-specific deterministic verifier may inspect the browser and result.
     verifier: Callable | None = None
