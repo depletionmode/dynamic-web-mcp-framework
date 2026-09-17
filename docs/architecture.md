@@ -16,7 +16,7 @@ flowchart LR
     H[Human login view] --> B
 ```
 
-`spec.py` is the extension API. Site packages supply schemas and goals, not model clients or browser lifecycles. `server.py` registers them with the official low-level MCP server and adds file/custom-task tools. `runner.py` serializes calls, enforces bounds, tracks action evidence and captures, and handles completion. It never blindly repeats a failed action.
+`spec.py` is the extension API and `load.py` loads a site from a file path or module. Site files under `servers/<site>/` supply schemas, goals and verifiers, not model clients or browser lifecycles; the framework package contains no site. `server.py` registers them with the official low-level MCP server and adds file/custom-task tools. `runner.py` serializes calls, enforces bounds, tracks action evidence and captures, and handles completion. It never blindly repeats a failed action.
 
 `browser.py` owns Playwright, a persistent profile lock and file lifecycle. `snapshot.js` returns observed controls and retained nodes, traversing open shadow roots. Each allowed frame has a separate snapshot. The executor rechecks the target description and uses Playwright actionability (including click visibility/occlusion). A page/target change detected before input triggers a fresh observation, at most three consecutive times. History distinguishes executed inputs from rejected preflight attempts. Failures after dispatch stop the task so a possibly committed mutation is not replayed.
 

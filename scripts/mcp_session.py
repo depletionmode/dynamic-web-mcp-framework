@@ -1,6 +1,6 @@
 """Keep one MCP client session open on a site's container and run tool calls from a file.
 
-Usage: uv run python scripts/mcp_session.py <site> <workdir> [--local]
+Usage: uv run python scripts/mcp_session.py <servers/site-dir> <workdir> [--local]
 
 Writes <workdir>/status.json (login URL and state) after connecting, then executes each new
 line of <workdir>/commands.jsonl ({"tool": ..., "arguments": {...}}) and writes
@@ -17,15 +17,24 @@ from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
 
-def params(site, local):
+def server(target):
+    """servers/<site> directory -> (site, compose file, service). Service and container are <site>-mcp."""
+    directory = Path(target).resolve()
+    site = directory.name
+    return site, directory / "compose.yaml", f"{site}-mcp"
+
+
+def params(target, local):
     root = Path(__file__).resolve().parents[1]
+    site, compose, service = server(target)
     if local:
-        command, args = str(root / ".venv/bin/jev-mcp"), ["serve", "--site", site]
+        command = str(root / ".venv/bin/website-mcp")
+        args = ["serve", "--site", str(Path(target) / "site.py")]
         args += ["--state-dir", str(root / ".state")]
     else:
         command = "docker"
-        args = ["compose", "-f", str(root / "compose.yaml"), "run", "--rm", "--no-deps"]
-        args += ["--service-ports", "--name", f"{site}-mcp", "-T", f"{site}-mcp"]
+        args = ["compose", "-f", str(compose), "run", "--rm", "--no-deps"]
+        args += ["--service-ports", "--name", service, "-T", service]
     return StdioServerParameters(command=command, args=args, env=dict(os.environ))
 
 

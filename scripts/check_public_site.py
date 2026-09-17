@@ -1,17 +1,16 @@
 """Paid, read-only Jev run against Wikipedia, exercising the extension example."""
 
 import asyncio
-import sys
 import tempfile
-from dataclasses import replace
 from pathlib import Path
 
-from jev_mcp.browser import Browser
-from jev_mcp.policy import JevPolicy
-from jev_mcp.runner import Runner
+from website_mcp.browser import Browser
+from website_mcp.load import load_site
+from website_mcp.policy import JevPolicy
+from website_mcp.runner import Runner
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "examples"))
-from wiki_site import SITE, Search  # noqa: E402
+SITE = load_site(str(Path(__file__).resolve().parents[1] / "servers/wikipedia/site.py"))
+Search = SITE.tools[0].arguments
 
 
 async def main():
@@ -19,15 +18,8 @@ async def main():
         browser = Browser(SITE, Path(state))
         policy = JevPolicy()
 
-        async def verify(b):
-            return (
-                "/wiki/Ada_Lovelace" in b.page.url
-                and await b.page.locator("#firstHeading").inner_text() == "Ada Lovelace"
-                and "mathematician" in await b.page.locator("body").inner_text()
-            )
-
         try:
-            task = replace(SITE.tools[0].task(Search(query="Ada Lovelace")), verifier=verify)
+            task = SITE.tools[0].task(Search(query="Ada Lovelace"))
             result = await Runner(browser, policy).run(task)
             print(
                 {"status": result["status"], "url": result["page"]["url"], "steps": result["steps"]}

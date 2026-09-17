@@ -65,7 +65,9 @@ class Runner:
                                 }
                                 status = "verified" if verification["passed"] else "unverified"
                             else:
-                                probability = await self.policy.verify(task, observation, captures)
+                                probability = await self.policy.verify(
+                                    task, observation, history, captures
+                                )
                                 verification = {"kind": "model", "probability": probability}
                                 status = "model_complete" if probability >= 0.9 else "unverified"
                             break

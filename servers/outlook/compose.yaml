@@ -1,0 +1,28 @@
+# Outlook.com MCP server: one container, named outlook-mcp, built on the generic framework image.
+# Run from anywhere:  docker compose -f servers/outlook/compose.yaml run --rm --service-ports --name outlook-mcp -T outlook-mcp
+name: outlook-mcp
+services:
+  outlook-mcp:
+    build:
+      context: ../..
+      args:
+        SITE_DIR: servers/outlook
+    image: outlook-mcp:local
+    init: true
+    stdin_open: true
+    # MCP over stdio; the human login view is published on the host loopback.
+    command: [serve, --site, /site/site.py, --host, "0.0.0.0", --port, "8765"]
+    ports:
+      - "127.0.0.1:8765:8765"
+    environment:
+      # From the environment that runs `docker compose`, the MCP client's env block, or ./.env.
+      TYPESAFE_API_KEY: ${TYPESAFE_API_KEY:?export TYPESAFE_API_KEY or put it in .env next to compose.yaml}
+      TYPESAFE_DEFAULT_MODEL: ${TYPESAFE_DEFAULT_MODEL:-jev-latest}
+    volumes:
+      - data:/data
+    shm_size: 256mb
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+volumes:
+  data:
+    name: outlook-mcp-data

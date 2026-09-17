@@ -3,7 +3,7 @@ from typing import Literal
 
 from pydantic import Field, model_validator
 
-from ..spec import Arguments, Site, Task, ToolSpec
+from website_mcp.spec import Arguments, Site, Task, ToolSpec
 
 
 class Empty(Arguments):

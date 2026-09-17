@@ -3,24 +3,24 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "jev-browser-mcp"
+name = "website-mcp"
 version = "0.1.0"
 description = "Isolated headless Chromium MCP servers driven by TypeSafe Jev"
 requires-python = ">=3.12"
 dependencies = ["mcp>=1.26,<2", "playwright>=1.58,<2", "typesafe-sdk>=0.6,<0.7", "pydantic>=2.12,<3", "starlette>=0.40", "uvicorn>=0.34"]
 
 [project.scripts]
-jev-mcp = "jev_mcp.cli:main"
+website-mcp = "website_mcp.cli:main"
 
 [dependency-groups]
 dev = ["pytest>=8", "pytest-asyncio>=1", "ruff>=0.12"]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/jev_mcp"]
+packages = ["src/website_mcp"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-testpaths = ["tests"]
+testpaths = ["tests", "servers"]
 
 [tool.ruff]
 line-length = 100

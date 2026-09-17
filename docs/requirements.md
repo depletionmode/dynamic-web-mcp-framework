@@ -9,7 +9,7 @@ Source: the user-provided pasted text attachment read at the start of the task. 
 | Driven by Jev, similar to jev-ultrafast | Batched action/target/value Choice heads; live paid model tests with independent outcome verification | Proven on representative fixture workflows |
 | Login/auth support with contained credentials | Human login portal, isolated persistent profiles, process locks and per-account directories/volumes | Mechanism tested; real account sign-in still pending |
 | Lightweight separate Docker container for each MCP | Shared slim image/headless shell, two Compose services, separate volumes, non-root runtime | Built and exercised through MCP |
-| Instructions for future agents | `docs/BUILDING_SERVERS.md`, `AGENTS.md`, extension example | Written and reviewed against framework API |
+| Instructions for future agents | `docs/BUILDING_SERVERS.md`, `skills/website-mcp/SKILL.md`, `servers/wikipedia` | Written and reviewed against framework API |
 | Outlook browsing/search/mailboxes/timeframes/filters/attachments | Outlook typed tools and exact search construction | Implemented; authenticated acceptance pending |
 | Outlook attachment retrieval | Browser download store + MCP binary retrieval + download tool | Primitive verified; actual Outlook attachment pending |
 | Outlook email/tag/folder management | Manage-mail, categories, folders tools | Implemented; authenticated acceptance pending |

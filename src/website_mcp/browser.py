@@ -174,6 +174,7 @@ class Browser:
                     raise
         return {
             "url": self.page.url,
+            "title": await self.page.title(),
             "frames": frames,
             "controls": controls,
             "blocked_navigation": self.blocked_navigation,

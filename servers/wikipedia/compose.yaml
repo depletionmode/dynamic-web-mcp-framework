@@ -1,0 +1,26 @@
+# Wikipedia MCP server: the reference site, no login. One container named wikipedia-mcp.
+# Run:  docker compose -f servers/wikipedia/compose.yaml run --rm --service-ports --name wikipedia-mcp -T wikipedia-mcp
+name: wikipedia-mcp
+services:
+  wikipedia-mcp:
+    build:
+      context: ../..
+      args:
+        SITE_DIR: servers/wikipedia
+    image: wikipedia-mcp:local
+    init: true
+    stdin_open: true
+    command: [serve, --site, /site/site.py, --host, "0.0.0.0", --port, "8767"]
+    ports:
+      - "127.0.0.1:8767:8767"
+    environment:
+      TYPESAFE_API_KEY: ${TYPESAFE_API_KEY:?export TYPESAFE_API_KEY or put it in .env next to compose.yaml}
+      TYPESAFE_DEFAULT_MODEL: ${TYPESAFE_DEFAULT_MODEL:-jev-latest}
+    volumes:
+      - data:/data
+    shm_size: 256mb
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+volumes:
+  data:
+    name: wikipedia-mcp-data

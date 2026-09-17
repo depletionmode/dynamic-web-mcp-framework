@@ -4,15 +4,15 @@ import os
 from pathlib import Path
 
 from .browser import Browser
+from .load import load_site
 from .server import serve
-from .sites import load_site
 
 
 def main():
     parser = argparse.ArgumentParser(description="Jev-driven website MCP server")
     parser.add_argument("command", choices=["serve", "tools"])
     parser.add_argument(
-        "--site", required=True, help="outlook, or an importable module exporting SITE"
+        "--site", required=True, help="Path to a site.py, or an importable module, exporting SITE"
     )
     parser.add_argument("--account", default=os.getenv("JEV_ACCOUNT", "default"))
     parser.add_argument(

@@ -1,9 +1,9 @@
 from unittest.mock import AsyncMock
 
-from jev_mcp.browser import Browser
-from jev_mcp.policy import Decision
-from jev_mcp.runner import Runner
-from jev_mcp.spec import Site, Task
+from website_mcp.browser import Browser
+from website_mcp.policy import Decision
+from website_mcp.runner import Runner
+from website_mcp.spec import Site, Task
 
 
 async def test_done_does_not_imply_verified(website, tmp_path):

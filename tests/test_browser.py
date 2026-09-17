@@ -2,8 +2,8 @@ import asyncio
 
 import pytest
 
-from jev_mcp.browser import Browser
-from jev_mcp.spec import Site
+from website_mcp.browser import Browser
+from website_mcp.spec import Site
 
 
 def target(observation, name):

@@ -8,7 +8,7 @@ Date: 2026-09-17. This separates implemented interfaces from demonstrated behavi
 - Profile lifecycle: authentication-like local storage persists across browser restart; different account profiles cannot read it; a concurrent process cannot open the same profile.
 - Local human login view: unauthorized screen/actions rejected; authorized screenshot, coordinate click and text input operate actual headless Chromium. No Jev calls are involved in this path.
 - Strict Content Security Policy: Chromium snapshots and field entry work without enabling `unsafe-eval` or bypassing CSP. This regression was discovered on the public Outlook page.
-- MCP: official client initializes each server over stdio, discovers typed tools, uploads and reads binary attachment chunks, and receives an error on file traversal. Outlook advertises 12 site tools plus 5 framework tools.
+- MCP: official client initializes each server over stdio, discovers typed tools, uploads and reads binary attachment chunks, and receives an error on file traversal. The Outlook server advertises 12 site tools plus 5 framework tools; Wikipedia 1 plus 5.
 - Real Jev API + actual Chromium, local fixture: exact recipient, subject and body entered; draft saved; independent DOM verifier checks every field and the saved status. Also selects High priority, uploads exact receipt bytes and downloads an invoice exactly once; verifier checks resulting UI and downloaded contents.
 - Public third-site extension: Jev searched Wikipedia for Ada Lovelace and opened the article; independent checks confirmed the URL, heading and article content. This exposed and led to fixes for oversized DOM prompts and stale preflight recovery.
 - False completion: a `done` decision with insufficient evidence remains `unverified`; execution errors are not replayed.
@@ -24,26 +24,14 @@ uv run pytest -q
 RUN_LIVE_JEV=1 uv run pytest -q -s
 uv build
 docker compose config --quiet
-docker build -t jev-browser-mcp:local .
-uv run python scripts/check_docker.py
+docker compose -f servers/wikipedia/compose.yaml build
+uv run python scripts/check_docker.py servers/wikipedia servers/outlook
 # Paid, read-only public-site extension check:
 uv run python scripts/check_public_site.py
 ```
 
-The offline suite has 15 tests plus two explicitly skipped live-model tests. The full opt-in suite has 17 tests. A Starlette/AnyIO deprecation warning is currently non-failing.
+The offline suite has 19 tests plus two explicitly skipped live-model tests. A Starlette/AnyIO deprecation warning is currently non-failing.
 
 ## Remaining live acceptance
 
-Use dedicated test accounts. Login is completed in the login view served by the running MCP container, retaining state in its Docker volume. Read-only tests can then inspect actual data; sends and other externally visible mutations require explicit test instructions and appropriate test records.
-
-| Requirement | Implemented interface | Remaining evidence |
-| --- | --- | --- |
-| Outlook mailbox/folder listing | `outlook_list_folders` | Nested folder names/counts match authenticated UI |
-| Timeframes, filters and search | `outlook_search_mail` | Date boundaries, sender/read/category/attachment filters and multipage results match known messages |
-| Read messages | `outlook_read_mail` | Correct unique message, full body/headers/attachment list |
-| Grab attachments | `outlook_download_attachments`, `files_read` | Actual mail attachment bytes and filename |
-| Manage emails/tags/folders | `outlook_manage_mail`, `outlook_manage_categories`, `outlook_manage_folders` | Each requested state transition checked in a test mailbox |
-| Draft/edit/send/reply/forward | Four compose/draft tools plus `outlook_reply` | Exact recipients/body/attachments and Drafts/Sent Items evidence in an authorized test scenario |
-| Real login persistence | `login`, isolated volume | User sign-in/MFA followed by successful authenticated MCP after restarting |
-
-Do not interpret a fixture pass, advertised tool schema, or a public login page as proof of authenticated site behavior. Use failures from live acceptance to refine site guidance, exact field candidates and deterministic verifiers. No unrequested real email was sent during development.
+Per-site acceptance against real accounts is tracked next to each server: `servers/outlook/verification.md`. The framework does not claim any site works until that file shows evidence from a signed-in session. No unrequested real email was sent during development.

@@ -2,7 +2,7 @@ from unittest.mock import AsyncMock
 
 from starlette.testclient import TestClient
 
-from jev_mcp.auth import auth_app
+from website_mcp.auth import auth_app
 
 
 def test_login_requires_token():
@@ -18,8 +18,8 @@ def test_login_requires_token():
 async def test_headless_login_view_controls_real_browser(website, tmp_path):
     from httpx import ASGITransport, AsyncClient
 
-    from jev_mcp.browser import Browser
-    from jev_mcp.spec import Site
+    from website_mcp.browser import Browser
+    from website_mcp.spec import Site
 
     browser = Browser(Site("fixture", website, ("127.0.0.1",), ()), tmp_path)
     await browser.start()
@@ -49,9 +49,9 @@ async def test_headless_login_view_controls_real_browser(website, tmp_path):
 async def test_logged_out_page_short_circuits_without_model_call(website, tmp_path):
     from unittest.mock import AsyncMock
 
-    from jev_mcp.browser import Browser
-    from jev_mcp.runner import Runner
-    from jev_mcp.spec import Site, Task
+    from website_mcp.browser import Browser
+    from website_mcp.runner import Runner
+    from website_mcp.spec import Site, Task
 
     site = Site("fixture", website, ("127.0.0.1",), (), login_domains=("127.0.0.1",))
     browser = Browser(site, tmp_path)
@@ -79,7 +79,8 @@ async def test_serve_hosts_login_view_and_reports_it(tmp_path):
         port = probe.getsockname()[1]
     params = StdioServerParameters(
         command=sys.executable,
-        args=["-m", "jev_mcp.cli", "serve", "--site", "outlook", "--state-dir", str(tmp_path)]
+        args=["-m", "website_mcp.cli", "serve", "--site", "servers/wikipedia/site.py"]
+        + ["--state-dir", str(tmp_path)]
         + ["--host", "127.0.0.1", "--port", str(port)],
         env=dict(os.environ),
     )

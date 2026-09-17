@@ -8,22 +8,15 @@ from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 from pydantic import ValidationError
 
-from jev_mcp.sites.outlook import ChangeMessages, MailQuery
-from jev_mcp.spec import Site, contained_file
+from website_mcp.spec import Site, contained_file
 
 
-def test_validation():
+def test_validation_rejects_unknown_fields():
+    from website_mcp.load import load_site
+
+    site = load_site("servers/wikipedia/site.py")
     with pytest.raises(ValidationError):
-        ChangeMessages(messages=["test"], action="move")
-    with pytest.raises(ValidationError):
-        MailQuery(after="2026-09-17", before="2026-01-01")
-    query = MailQuery(
-        sender="ada@example.com", unread=True, has_attachments=True, after="2026-09-01"
-    )
-    assert (
-        query.search()
-        == 'from:"ada@example.com" received:>=2026-09-01 isread:no hasattachments:yes'
-    )
+        site.tools[0].arguments(query="x", selector="#evil")
 
 
 def test_domains_and_path_boundary(tmp_path):
@@ -42,13 +35,13 @@ def test_domains_and_path_boundary(tmp_path):
 
 
 async def test_stdio_handshake_tools_and_file_roundtrip(tmp_path):
-    site, expected = "outlook", "outlook_send_mail"
+    site, expected = "servers/wikipedia/site.py", "wiki_search"
     params = StdioServerParameters(
         command=sys.executable,
         # --host '' : no login view, so parallel test runs never fight over a port.
         args=[
             "-m",
-            "jev_mcp.cli",
+            "website_mcp.cli",
             "serve",
             "--site",
             site,

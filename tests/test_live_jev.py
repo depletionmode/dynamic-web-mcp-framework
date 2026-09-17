@@ -4,10 +4,10 @@ import os
 
 import pytest
 
-from jev_mcp.browser import Browser
-from jev_mcp.policy import JevPolicy
-from jev_mcp.runner import Runner
-from jev_mcp.spec import Site, Task
+from website_mcp.browser import Browser
+from website_mcp.policy import JevPolicy
+from website_mcp.runner import Runner
+from website_mcp.spec import Site, Task
 
 pytestmark = pytest.mark.skipif(
     os.getenv("RUN_LIVE_JEV") != "1", reason="Set RUN_LIVE_JEV=1 for paid API calls"

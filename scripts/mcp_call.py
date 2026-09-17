@@ -1,7 +1,7 @@
 """Call one tool on a site's container through a real MCP stdio client.
 
-Usage: uv run python scripts/mcp_call.py <site> <tool> ['<json arguments>'] [--local]
-Prints the JSON result. --local runs the server from this checkout instead of Docker.
+Usage: uv run python scripts/mcp_call.py <servers/site-dir> <tool> ['<json arguments>'] [--local]
+Prints the JSON result. --local runs <site-dir>/site.py from this checkout instead of Docker.
 """
 
 import asyncio
@@ -14,19 +14,28 @@ from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
 
-async def main(site, tool, arguments, local):
+def server(target):
+    """servers/<site> directory -> (site, compose file, service). Service and container are <site>-mcp."""
+    directory = Path(target).resolve()
+    site = directory.name
+    return site, directory / "compose.yaml", f"{site}-mcp"
+
+
+async def main(target, tool, arguments, local):
     root = Path(__file__).resolve().parents[1]
+    site, compose, service = server(target)
     if local:
         params = StdioServerParameters(
-            command=str(root / ".venv/bin/jev-mcp"),
-            args=["serve", "--site", site, "--state-dir", str(root / ".state")],
+            command=str(root / ".venv/bin/website-mcp"),
+            args=["serve", "--site", str(Path(target) / "site.py")]
+            + ["--state-dir", str(root / ".state")],
             env=dict(os.environ),
         )
     else:
         params = StdioServerParameters(
             command="docker",
-            args=["compose", "-f", str(root / "compose.yaml"), "run", "--rm", "--no-deps"]
-            + ["--service-ports", "--name", f"{site}-mcp", "-T", f"{site}-mcp"],
+            args=["compose", "-f", str(compose), "run", "--rm", "--no-deps"]
+            + ["--service-ports", "--name", service, "-T", service],
             # The MCP SDK strips the environment by default; Compose needs TYPESAFE_API_KEY.
             env=dict(os.environ),
         )
