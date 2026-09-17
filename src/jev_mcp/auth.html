@@ -1,0 +1,19 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width">
+<title>Jev MCP · Private login</title>
+<style>body{font:16px system-ui;background:#10151d;color:#eef4ff;margin:20px}header{max-width:1000px}button,input{font:inherit;padding:9px;margin:4px;border-radius:6px;border:1px solid #64748b}button{cursor:pointer}#screen{width:min(100%,1440px);border:1px solid #64748b;cursor:crosshair}#status{color:#aecbfa}input{width:300px}small{display:block;margin:10px 0}</style>
+<header><h1>Private browser login</h1><p>Click a field in the browser image, enter text below, then press “Type into field”. Complete sign-in and MFA here. This page operates your isolated Chromium profile directly; it does not call Jev.</p>
+<input id="entry" type="password" autocomplete="off" placeholder="Text or password to type"><button id="type">Type into field</button>
+<button data-key="Enter">Enter</button><button data-key="Tab">Tab</button><button data-key="Backspace">Backspace</button><button data-key="ControlOrMeta+A">Select all</button><button data-key="Escape">Escape</button><button id="home">App home</button><button id="up">Scroll up</button><button id="down">Scroll down</button>
+<small>After signing in, stop the login process with Ctrl-C, then start the MCP server. Do not share this page's URL.</small><p id="status">Connecting…</p></header><img id="screen" alt="Live isolated Chromium viewport">
+<script>
+const token=location.hash.slice(1); history.replaceState(null,'',location.pathname);
+const headers={'Authorization':'Bearer '+token,'Content-Type':'application/json'};
+const screen=document.getElementById('screen'),status=document.getElementById('status');let busy=false,blobURL;
+async function refresh(){if(busy)return;busy=true;try{const r=await fetch('/screen',{headers,cache:'no-store'});if(!r.ok)throw Error('Login view unavailable ('+r.status+'). Reopen the URL printed by the login command.');const b=await r.blob();if(blobURL)URL.revokeObjectURL(blobURL);blobURL=URL.createObjectURL(b);screen.src=blobURL;status.textContent='Connected · click image to interact';}catch(e){status.textContent=e.message}finally{busy=false}}
+async function act(data){try{const r=await fetch('/action',{method:'POST',headers,body:JSON.stringify(data)});if(!r.ok)throw Error('Action failed: '+r.status);await refresh()}catch(e){status.textContent=e.message}}
+screen.onclick=e=>{const r=screen.getBoundingClientRect();act({op:'click',x:(e.clientX-r.left)*1440/r.width,y:(e.clientY-r.top)*1000/r.height})};
+document.getElementById('type').onclick=()=>{const el=document.getElementById('entry');const text=el.value;el.value='';act({op:'text',text})};
+document.querySelectorAll('[data-key]').forEach(b=>b.onclick=()=>act({op:'key',key:b.dataset.key}));
+document.getElementById('home').onclick=()=>act({op:'home'});document.getElementById('up').onclick=()=>act({op:'scroll',dy:-700});document.getElementById('down').onclick=()=>act({op:'scroll',dy:700});
+refresh();setInterval(refresh,1500);
+</script></html>
