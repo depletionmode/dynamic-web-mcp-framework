@@ -93,6 +93,12 @@ class Browser:
             await self.close()
             raise
 
+    def needs_login(self):
+        """True when the current page is a login/logged-out page of this site."""
+        return (
+            bool(self.page) and not self.page.is_closed() and self.site.is_login_url(self.page.url)
+        )
+
     async def _route(self, route):
         req = route.request
         if req.is_navigation_request() and not self.site.permits(req.url):

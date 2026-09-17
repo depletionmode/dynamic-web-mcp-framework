@@ -39,13 +39,20 @@ class Site:
     domains: tuple[str, ...]
     tools: tuple[ToolSpec, ...]
     guidance: str = ""
+    # Hosts that mean there is no authenticated session (login pages, logged-out landing pages).
+    login_domains: tuple[str, ...] = ()
 
     def permits(self, url: str) -> bool:
         parsed = urlparse(url)
-        host = parsed.hostname or ""
-        return parsed.scheme in {"https", "http"} and any(
-            host == domain or host.endswith("." + domain) for domain in self.domains
-        )
+        return parsed.scheme in {"https", "http"} and _host_in(parsed.hostname, self.domains)
+
+    def is_login_url(self, url: str) -> bool:
+        return _host_in(urlparse(url).hostname, self.login_domains)
+
+
+def _host_in(host, domains):
+    host = host or ""
+    return any(host == domain or host.endswith("." + domain) for domain in domains)
 
 
 def contained_file(root: Path, name: str) -> Path:

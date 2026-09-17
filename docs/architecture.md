@@ -22,7 +22,7 @@ flowchart LR
 
 `policy.py` sends one batch per step: operation plus speculative target/value/option/key questions. It consumes only the selected branch. Model predictions cannot execute code or supply new text. `done` triggers a fresh observation and either a site-specific deterministic verifier or a second model assessment.
 
-`auth.py` uses Starlette only for the local human login page. A random capability token is passed in the URL fragment, then used as a bearer header. No model or website credentials are stored in this web UI. Chromium keeps its normal auth state in its isolated profile. The user closes login before the MCP process opens the same profile.
+`auth.py` uses Starlette only for the local human login page. `serve` hosts it in the same process as the MCP server, sharing the browser and its lock, so a human can sign in while an MCP client stays connected. A random capability token is passed in the URL fragment, then used as a bearer header. No model or website credentials are stored in this web UI. Chromium keeps its normal auth state in its isolated profile. `Site.login_domains` tells the runner which hosts mean logged out; on those it returns `login_required` and the login URL instead of calling the model.
 
 Persistence is per `<state>/<site>/<account>`. Files are private, downloaded names get random prefixes, caller-provided paths must resolve inside the file store, and MCP retrieval is bounded base64 chunks. Profile and download data are intentionally excluded from version control and Docker build contexts.
 

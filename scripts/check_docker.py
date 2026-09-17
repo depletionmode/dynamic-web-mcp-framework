@@ -10,7 +10,7 @@ from mcp.client.stdio import stdio_client
 
 async def main():
     compose = str(Path(__file__).resolve().parents[1] / "compose.yaml")
-    for site in ("outlook", "morning"):
+    for site in ("outlook",):
         params = StdioServerParameters(
             command="docker",
             args=[
@@ -47,6 +47,7 @@ async def main():
                             "url": page["url"].split("?")[0],
                             "controls": len(page["controls"]),
                             "blocked_navigation": page["blocked_navigation"],
+                            "login": page["login"],
                         }
                     )
                 )

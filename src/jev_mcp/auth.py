@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import secrets
 import sys
 from contextlib import asynccontextmanager
@@ -16,14 +17,18 @@ from starlette.routing import Route
 HTML = Path(__file__).with_name("auth.html").read_text()
 
 
-def auth_app(browser, token):
+def auth_app(browser, token, manage_browser=True):
+    """manage_browser=False when the MCP server owns the browser lifecycle."""
+
     @asynccontextmanager
     async def lifespan(app):
-        await browser.start()
+        if manage_browser:
+            await browser.start()
         try:
             yield
         finally:
-            await browser.close()
+            if manage_browser:
+                await browser.close()
 
     def authorized(request):
         return secrets.compare_digest(request.headers.get("authorization", ""), f"Bearer {token}")
@@ -42,6 +47,7 @@ def auth_app(browser, token):
         if not authorized(request):
             return Response(status_code=401)
         async with browser.lock:
+            await browser.start()
             if browser.page.is_closed():
                 await browser.observe()
             data = await browser.page.screenshot(type="jpeg", quality=80)
@@ -52,6 +58,7 @@ def auth_app(browser, token):
             return Response(status_code=401)
         data = await request.json()
         async with browser.lock:
+            await browser.start()
             op = data.get("op")
             if op == "click":
                 x, y = float(data["x"]), float(data["y"])
@@ -91,15 +98,42 @@ def auth_app(browser, token):
     )
 
 
+class LoginView:
+    """Token-protected human login page; runs standalone or beside the MCP server."""
+
+    def __init__(self, browser, host, port, manage_browser=False):
+        self.token = secrets.token_urlsafe(32)
+        self.url = f"http://127.0.0.1:{port}/#{self.token}"
+        self.server = uvicorn.Server(
+            uvicorn.Config(
+                auth_app(browser, self.token, manage_browser),
+                host=host,
+                port=port,
+                log_level="warning",
+                access_log=False,
+            )
+        )
+
+    async def serve(self):
+        await self.server.serve()
+
+    async def serve_in_background(self):
+        """Never lets a bind failure kill the MCP server; uvicorn raises SystemExit on it."""
+        try:
+            await self.server.serve()
+        except asyncio.CancelledError:
+            raise
+        except BaseException as exc:
+            print(f"Login view unavailable: {exc}", file=sys.stderr)
+
+    def stop(self):
+        self.server.should_exit = True
+
+
 async def login(browser, host, port):
-    token = secrets.token_urlsafe(32)
+    view = LoginView(browser, host, port, manage_browser=True)
     print(
-        f"Login URL: http://127.0.0.1:{port}/#{token}\nComplete login, then Ctrl-C to save/close the profile before starting MCP.",
+        f"Login URL: {view.url}\nComplete login, then Ctrl-C to save/close the profile.",
         file=sys.stderr,
     )
-    server = uvicorn.Server(
-        uvicorn.Config(
-            auth_app(browser, token), host=host, port=port, log_level="warning", access_log=False
-        )
-    )
-    await server.serve()
+    await view.serve()

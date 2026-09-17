@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import asyncio
 import base64
 import json
+import sys
 import uuid
 from pathlib import Path
 
@@ -10,6 +12,7 @@ from mcp.server.stdio import stdio_server
 from mcp.types import TextContent, Tool, ToolAnnotations
 from pydantic import Field
 
+from .auth import LoginView
 from .policy import JevPolicy
 from .runner import Runner
 from .spec import Arguments, Task, contained_file
@@ -69,9 +72,15 @@ BUILTINS = {
 }
 
 
-def create_server(browser, policy=None):
+def create_server(browser, policy=None, login_url=None):
     server = Server(f"jev-{browser.site.name}")
     runner = Runner(browser, policy or JevPolicy())
+
+    def with_login(result):
+        """Tell the agent whether a human must sign in, and where, before retrying."""
+        result["login"] = {"required": browser.needs_login(), "url": login_url}
+        return result
+
     specs = {spec.name: spec for spec in browser.site.tools}
     if len(specs) != len(browser.site.tools) or specs.keys() & BUILTINS.keys():
         raise ValueError("Tool names must be unique and cannot shadow framework tools")
@@ -111,14 +120,14 @@ def create_server(browser, policy=None):
             task = spec.task(args)
             for filename in task.uploads.values():
                 contained_file(browser.files, filename)
-            result = await runner.run(task)
+            result = with_login(await runner.run(task))
         elif name in BUILTINS:
             args = BUILTINS[name][0].model_validate(arguments)
             if name == "website_task":
                 for filename in args.uploads.values():
                     contained_file(browser.files, filename)
-                result = await runner.run(
-                    Task(args.goal, args.values, args.uploads, args.max_steps)
+                result = with_login(
+                    await runner.run(Task(args.goal, args.values, args.uploads, args.max_steps))
                 )
                 return [
                     TextContent(
@@ -128,7 +137,7 @@ def create_server(browser, policy=None):
             async with browser.lock:
                 if name == "browser_status":
                     await browser.start()
-                    result = await browser.observe()
+                    result = with_login(await browser.observe())
                 else:
                     browser.files.mkdir(parents=True, exist_ok=True, mode=0o700)
                     if name == "files_list":
@@ -166,11 +175,20 @@ def create_server(browser, policy=None):
     return server, runner
 
 
-async def serve(browser):
-    server, runner = create_server(browser)
+async def serve(browser, host=None, port=None):
+    """MCP over stdio, with the human login view on host:port when a host is given."""
+    view = LoginView(browser, host, port) if host else None
+    server, runner = create_server(browser, login_url=view.url if view else None)
+    view_task = None
+    if view:
+        print(f"Login view: {view.url}", file=sys.stderr)
+        view_task = asyncio.create_task(view.serve_in_background())
     try:
         async with stdio_server() as (read, write):
             await server.run(read, write, server.create_initialization_options())
     finally:
+        if view_task:
+            view.stop()
+            await view_task
         await runner.policy.close()
         await browser.close()

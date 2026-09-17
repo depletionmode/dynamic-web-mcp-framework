@@ -4,7 +4,10 @@ services:
     image: jev-browser-mcp:local
     init: true
     stdin_open: true
-    command: [serve, --site, outlook]
+    # MCP over stdio; the human login view listens inside the container on 8765.
+    command: [serve, --site, outlook, --host, "0.0.0.0", --port, "8765"]
+    ports:
+      - "127.0.0.1:8765:8765"
     environment:
       TYPESAFE_API_KEY: ${TYPESAFE_API_KEY:-}
       TYPESAFE_DEFAULT_MODEL: ${TYPESAFE_DEFAULT_MODEL:-jev-latest}
@@ -13,20 +16,5 @@ services:
     shm_size: 256mb
     security_opt: [no-new-privileges:true]
     cap_drop: [ALL]
-  morning:
-    build: .
-    image: jev-browser-mcp:local
-    init: true
-    stdin_open: true
-    command: [serve, --site, morning]
-    environment:
-      TYPESAFE_API_KEY: ${TYPESAFE_API_KEY:-}
-      TYPESAFE_DEFAULT_MODEL: ${TYPESAFE_DEFAULT_MODEL:-jev-latest}
-    volumes:
-      - morning-data:/data
-    shm_size: 256mb
-    security_opt: [no-new-privileges:true]
-    cap_drop: [ALL]
 volumes:
   outlook-data:
-  morning-data:

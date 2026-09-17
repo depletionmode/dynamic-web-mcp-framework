@@ -27,6 +27,9 @@ class Runner:
                     for _ in range(task.max_steps):
                         observation = await self.browser.observe()
                         observation["downloads"] = self.browser.downloads[first_download:]
+                        if self.browser.needs_login():
+                            status = "login_required"
+                            break
                         decision = await self.policy.decide(
                             task, observation, history, self.browser.site.guidance
                         )

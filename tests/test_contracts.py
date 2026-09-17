@@ -8,7 +8,6 @@ from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 from pydantic import ValidationError
 
-from jev_mcp.sites.morning import Document
 from jev_mcp.sites.outlook import ChangeMessages, MailQuery
 from jev_mcp.spec import Site, contained_file
 
@@ -25,13 +24,6 @@ def test_validation():
         query.search()
         == 'from:"ada@example.com" received:>=2026-09-01 isread:no hasattachments:yes'
     )
-    with pytest.raises(ValidationError):
-        Document(
-            document_type="receipt",
-            customer="Ada",
-            date="2026-09-01",
-            items=[{"description": "service", "quantity": "1", "unit_price": "100"}],
-        )
 
 
 def test_domains_and_path_boundary(tmp_path):
@@ -49,13 +41,22 @@ def test_domains_and_path_boundary(tmp_path):
             contained_file(root, name)
 
 
-@pytest.mark.parametrize(
-    "site,expected", [("outlook", "outlook_send_mail"), ("morning", "morning_create_draft")]
-)
-async def test_stdio_handshake_tools_and_file_roundtrip(tmp_path, site, expected):
+async def test_stdio_handshake_tools_and_file_roundtrip(tmp_path):
+    site, expected = "outlook", "outlook_send_mail"
     params = StdioServerParameters(
         command=sys.executable,
-        args=["-m", "jev_mcp.cli", "serve", "--site", site, "--state-dir", str(tmp_path)],
+        # --host '' : no login view, so parallel test runs never fight over a port.
+        args=[
+            "-m",
+            "jev_mcp.cli",
+            "serve",
+            "--site",
+            site,
+            "--state-dir",
+            str(tmp_path),
+            "--host",
+            "",
+        ],
         env=dict(os.environ),
     )
     async with stdio_client(params) as (read, write):

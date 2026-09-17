@@ -1,6 +1,6 @@
 # Original scope and completion audit
 
-Source: the user-provided pasted text attachment read at the start of the task. The scope is a reusable Jev-driven browser MCP framework plus Outlook.com and Morning.co.il servers, each containerized, with agent instructions for future servers.
+Source: the user-provided pasted text attachment read at the start of the task. The scope is a reusable Jev-driven browser MCP framework plus an Outlook.com server in its own container, with agent instructions for future servers. Morning.co.il was in the original request; on 2026-09-17 David removed it from this repository so that it can later be built from the SKILL by a fresh agent as the framework's first real test.
 
 | Requested outcome | Current artifact/evidence | Audit status |
 | --- | --- | --- |
@@ -14,6 +14,5 @@ Source: the user-provided pasted text attachment read at the start of the task. 
 | Outlook attachment retrieval | Browser download store + MCP binary retrieval + download tool | Primitive verified; actual Outlook attachment pending |
 | Outlook email/tag/folder management | Manage-mail, categories, folders tools | Implemented; authenticated acceptance pending |
 | Outlook send/draft emails | Compose/update/send-draft/reply tools with supplied content and files | Draft primitive verified with Jev; actual Outlook acceptance pending |
-| Morning MCP | Document/customer/expense/report tools + generic task | Implemented; public login reached; authenticated acceptance pending |
 
 See `verification.md` for commands and the remaining workflow-level evidence. The goal remains open until the authenticated acceptance gap is resolved or the user changes the acceptance scope.

@@ -13,14 +13,16 @@ def main():
     parser = argparse.ArgumentParser(description="Jev-driven website MCP server")
     parser.add_argument("command", choices=["serve", "login", "tools"])
     parser.add_argument(
-        "--site", required=True, help="outlook, morning, or importable module exporting SITE"
+        "--site", required=True, help="outlook, or an importable module exporting SITE"
     )
     parser.add_argument("--account", default=os.getenv("JEV_ACCOUNT", "default"))
     parser.add_argument(
         "--state-dir", type=Path, default=Path(os.getenv("JEV_STATE_DIR", ".state"))
     )
-    parser.add_argument("--host", default="127.0.0.1", help="Login UI bind address")
-    parser.add_argument("--port", type=int, default=8765, help="Login UI port")
+    parser.add_argument(
+        "--host", default="127.0.0.1", help="Login view bind address; '' disables it for serve"
+    )
+    parser.add_argument("--port", type=int, default=8765, help="Login view port")
     parser.add_argument(
         "--headed", action="store_true", help="Show Chromium during local login only"
     )
@@ -36,7 +38,9 @@ def main():
     browser = Browser(site, args.state_dir, args.account, headless=not args.headed)
     try:
         asyncio.run(
-            serve(browser) if args.command == "serve" else login(browser, args.host, args.port)
+            serve(browser, args.host, args.port)
+            if args.command == "serve"
+            else login(browser, args.host, args.port)
         )
     except KeyboardInterrupt:
         pass
